@@ -189,7 +189,7 @@ mod tests {
         error::{
             ReadReferenceDatasetError, ReadReferenceDatasetErrorInner, WriteReferenceDatasetError,
         },
-        h5_util::read_1d_dataset,
+        h5_util::read_test_1d_dataset,
         pseudo_anndata::PseudoAnndata,
         read_reference_dataset,
         transcriptome::{Transcriptome, TranscriptomeName},
@@ -278,28 +278,28 @@ mod tests {
         let scanpy_counts = scanpy_dataset.counts();
 
         assert_eq!(
-            read_1d_dataset::<i32>(&written, "matrix/data")
+            read_test_1d_dataset::<i32>(&written, "matrix/data")
                 .unwrap()
                 .as_slice()
                 .unwrap(),
             scanpy_counts.data()
         );
         assert_eq!(
-            read_1d_dataset::<i64>(&written, "matrix/indices")
+            read_test_1d_dataset::<i64>(&written, "matrix/indices")
                 .unwrap()
                 .as_slice()
                 .unwrap(),
             scanpy_counts.indices()
         );
         assert_eq!(
-            read_1d_dataset::<i64>(&written, "matrix/indptr")
+            read_test_1d_dataset::<i64>(&written, "matrix/indptr")
                 .unwrap()
                 .as_slice()
                 .unwrap(),
             scanpy_counts.indptr().raw_storage()
         );
         assert_eq!(
-            read_1d_dataset::<i32>(&written, "matrix/shape")
+            read_test_1d_dataset::<i32>(&written, "matrix/shape")
                 .unwrap()
                 .as_slice()
                 .unwrap(),
@@ -307,21 +307,22 @@ mod tests {
         );
 
         assert_eq!(
-            read_1d_dataset::<Barcode>(&written, "matrix/barcodes").unwrap(),
+            read_test_1d_dataset::<Barcode>(&written, "matrix/barcodes").unwrap(),
             scanpy_dataset.barcodes()
         );
 
         let scanpy_features = scanpy_dataset.features();
         assert_eq!(
-            read_1d_dataset::<EnsemblId>(&written, "matrix/features/id").unwrap(),
+            read_test_1d_dataset::<EnsemblId>(&written, "matrix/features/id").unwrap(),
             scanpy_features.ensembl_ids()
         );
         assert_eq!(
-            read_1d_dataset::<GeneName>(&written, "matrix/features/name").unwrap(),
+            read_test_1d_dataset::<GeneName>(&written, "matrix/features/name").unwrap(),
             scanpy_features.gene_names()
         );
         assert_eq!(
-            read_1d_dataset::<FixedAscii<32>>(&written, "matrix/features/feature_type").unwrap(),
+            read_test_1d_dataset::<FixedAscii<32>>(&written, "matrix/features/feature_type")
+                .unwrap(),
             scanpy_features.feature_types()
         );
 
@@ -396,28 +397,28 @@ mod tests {
         let original_h5 = hdf5_metno::File::open(REAL_H5).unwrap();
 
         let read_counts = read_dataset.counts();
-        let original_counts = read_1d_dataset::<i32>(&original_h5, "matrix/data").unwrap();
+        let original_counts = read_test_1d_dataset::<i32>(&original_h5, "matrix/data").unwrap();
         assert_eq!(
             original_counts.as_slice().unwrap(),
             read_counts.data(),
             "UMI counts were not correctly reconstructed"
         );
 
-        let original_indices = read_1d_dataset::<i64>(&original_h5, "matrix/indices").unwrap();
+        let original_indices = read_test_1d_dataset::<i64>(&original_h5, "matrix/indices").unwrap();
         assert_eq!(
             original_indices.as_slice().unwrap(),
             read_counts.indices(),
             "UMI count indices were not correctly? reconstructed"
         );
 
-        let original_indptr = read_1d_dataset::<i64>(&original_h5, "matrix/indptr").unwrap();
+        let original_indptr = read_test_1d_dataset::<i64>(&original_h5, "matrix/indptr").unwrap();
         assert_eq!(
             original_indptr.as_slice().unwrap(),
             read_counts.indptr().raw_storage(),
             "UMI counts indptr was not correctly? reconstructed"
         );
         assert_eq!(
-            read_1d_dataset::<i32>(&original_h5, "matrix/shape")
+            read_test_1d_dataset::<i32>(&original_h5, "matrix/shape")
                 .unwrap()
                 .as_slice()
                 .unwrap(),
@@ -425,16 +426,16 @@ mod tests {
         );
 
         let original_barcodes =
-            read_1d_dataset::<FixedAscii<64>>(&original_h5, "matrix/barcodes").unwrap();
+            read_test_1d_dataset::<FixedAscii<64>>(&original_h5, "matrix/barcodes").unwrap();
         assert_eq!(original_barcodes, read_dataset.barcodes());
 
         let read_features = read_dataset.features();
         let original_feature_ids =
-            read_1d_dataset::<EnsemblId>(&original_h5, "matrix/features/id").unwrap();
+            read_test_1d_dataset::<EnsemblId>(&original_h5, "matrix/features/id").unwrap();
         assert_eq!(original_feature_ids, read_features.ensembl_ids());
 
         let original_feature_names =
-            read_1d_dataset::<GeneName>(&original_h5, "matrix/features/name").unwrap();
+            read_test_1d_dataset::<GeneName>(&original_h5, "matrix/features/name").unwrap();
         assert_eq!(original_feature_names, read_features.gene_names());
     }
 }

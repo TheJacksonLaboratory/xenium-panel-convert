@@ -36,18 +36,6 @@ pub(super) fn read_attribute<T: H5Type>(
         })
 }
 
-pub(super) fn read_1d_dataset<T: H5Type>(
-    file: &File,
-    path: &str,
-) -> Result<Array1<T>, ReadH5FieldError> {
-    file.dataset(path).and_then(|ds| ds.read_1d()).map_err(|_| {
-        ReadH5FieldError::DataTypeOrMissing {
-            field_type: FieldType::Dataset,
-            object_path: path.to_owned(),
-        }
-    })
-}
-
 pub(super) fn read_dataset_raw<T: H5Type>(
     file: &File,
     path: &str,
@@ -80,6 +68,13 @@ pub(super) fn read_1d_string_dataset(
         StringEncodingType::StringArray => read_string_array(file, path),
         StringEncodingType::NullableStringArray => read_nullable_string_array(file, path),
     }
+}
+
+pub(super) fn read_1d_nullable_string_dataset(
+    file: &File,
+    path: &str,
+) -> Result<Array1<Option<VarLenUnicode>>, ReadH5FieldError> {
+    todo!()
 }
 
 fn read_categorical_array(
@@ -127,6 +122,23 @@ fn read_nullable_string_array(
     }
 
     read_string_array(file, &format!("{path}/values"))
+}
+
+fn read_1d_dataset<T: H5Type>(file: &File, path: &str) -> Result<Array1<T>, ReadH5FieldError> {
+    file.dataset(path).and_then(|ds| ds.read_1d()).map_err(|_| {
+        ReadH5FieldError::DataTypeOrMissing {
+            field_type: FieldType::Dataset,
+            object_path: path.to_owned(),
+        }
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn read_test_1d_dataset<T: H5Type>(
+    file: &File,
+    path: &str,
+) -> Result<Array1<T>, ReadH5FieldError> {
+    read_1d_dataset(file, path)
 }
 
 pub(super) fn to_ascii<const N: usize>(s: &VarLenUnicode) -> FixedAscii<N> {
