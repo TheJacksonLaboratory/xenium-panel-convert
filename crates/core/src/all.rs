@@ -30,8 +30,12 @@ pub fn validate_target_list_and_reference_dataset_compatibility(
     let mut warnings = Vec::with_capacity(target_list.len());
 
     for target in target_list.as_slice() {
+        let Some(gene) = target.gene() else {
+            continue;
+        };
+
         match validate_gene_is_in_transcriptome_with_correct_name(
-            target.gene(),
+            gene,
             reference_dataset,
             reference_dataset_transcriptome,
             reference_dataset_is_flex,
@@ -60,7 +64,7 @@ fn species_and_transcriptome_match(species: Species, transcriptome: Transcriptom
 }
 
 fn validate_gene_is_in_transcriptome_with_correct_name(
-    target: ValidGene,
+    gene: ValidGene,
     reference_dataset: &PseudoAnndata,
     reference_dataset_transcriptome: TranscriptomeName,
     reference_dataset_is_flex: bool,
@@ -71,17 +75,17 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
         .gene_map(reference_dataset.features().len())
         .expect("if we have a PseudoAnndata, we know its features are exactly the transcriptome");
 
-    let gene_name_from_transcriptome = gene_map.get(target.ensembl_id.as_str()).ok_or(
+    let gene_name_from_transcriptome = gene_map.get(gene.ensembl_id.as_str()).ok_or(
         TargetListReferenceDatasetCompatibilityWarningInner::TargetNotInReferenceDataset {
-            gene: target,
+            gene,
             transcriptome: reference_dataset_transcriptome,
         },
     )?;
 
-    if target.gene_name != *gene_name_from_transcriptome {
+    if gene.gene_name != *gene_name_from_transcriptome {
         return Err(
             TargetListReferenceDatasetCompatibilityWarningInner::GeneNameMismatch {
-                gene_in_target_list: target,
+                gene_in_target_list: gene,
                 gene_name_in_reference_dataset: gene_name_from_transcriptome,
             },
         );

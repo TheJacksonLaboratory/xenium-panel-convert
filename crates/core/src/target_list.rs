@@ -14,8 +14,8 @@ pub mod error;
 pub mod target;
 pub mod xenium_panel_designer;
 
-pub fn parse_target_list(
-    target_list: &str,
+pub fn parse_target_list<'a>(
+    target_list: &'a str,
     field_aliases: &HashMap<&str, &str>,
     ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
 ) -> Result<Vec<ValidTarget>, Vec<TargetErrorSet>> {
@@ -56,9 +56,10 @@ pub fn parse_target_list(
         let line_number = record.position().map(csv::Position::line);
         let submitted_target = UnvalidatedTarget::from_record(&record, &fieldnames);
 
-        let row_errors = match submitted_target.validate(ensembl_id_to_gene) {
+        let row_errors = match ValidTarget::from_unvalidated(&submitted_target, ensembl_id_to_gene)
+        {
             Ok(valid_target) => {
-                if seen_genes.insert(valid_target.gene()) {
+                if seen_genes.insert(valid_target.id_and_name()) {
                     valid_targets.push(valid_target);
 
                     continue;
@@ -108,7 +109,7 @@ mod tests {
 
         let gene_names: Vec<_> = targets
             .iter()
-            .map(|t| t.gene().gene_name.to_string())
+            .map(|t| t.id_and_name().1.to_string())
             .collect();
         assert_eq!(
             gene_names,

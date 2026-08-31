@@ -2,8 +2,7 @@ use serde::Serialize;
 
 use crate::target_list::{
     ValidTarget,
-    chemistry::{EnsemblId, GeneName},
-    target::{self, ValidGene},
+    target::{self, TargetId, TargetName, ValidGene},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -32,12 +31,12 @@ impl XeniumPanelDesignerGeneList {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct XeniumPanelDesignerGene {
     #[serde(rename = "Gene")]
-    gene: GeneName,
+    gene: TargetName,
     #[serde(rename = "Ensembl ID")]
-    ensembl_id: EnsemblId,
+    ensembl_id: TargetId,
     #[serde(rename = "Probe sets")]
     probe_sets: Option<u16>,
     #[serde(rename = "Force")]
@@ -46,10 +45,7 @@ pub struct XeniumPanelDesignerGene {
 
 impl XeniumPanelDesignerGene {
     fn from_valid_target(target: &ValidTarget) -> Self {
-        let ValidGene {
-            ensembl_id,
-            gene_name,
-        } = target.gene();
+        let (ensembl_id, gene_name) = target.id_and_name();
 
         Self {
             gene: gene_name,
@@ -59,11 +55,17 @@ impl XeniumPanelDesignerGene {
         }
     }
 
-    pub(crate) fn gene(&self) -> ValidGene {
-        ValidGene {
-            ensembl_id: self.ensembl_id,
-            gene_name: self.gene,
-        }
+    pub(crate) fn gene(&self) -> Option<ValidGene> {
+        let (TargetId::EnsemblId(ensembl_id), TargetName::GeneName(gene_name)) =
+            (&self.ensembl_id, &self.gene)
+        else {
+            return None;
+        };
+
+        Some(ValidGene {
+            ensembl_id: *ensembl_id,
+            gene_name: *gene_name,
+        })
     }
 }
 

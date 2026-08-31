@@ -24,6 +24,7 @@ pub struct UnvalidatedTarget {
     pub gene: UnvalidatedGene,
     pub group: Option<String>,
     pub priority: Option<String>,
+    pub custom: Option<String>,
 }
 
 impl UnvalidatedTarget {
@@ -32,59 +33,6 @@ impl UnvalidatedTarget {
         // missing fields
         record.deserialize(Some(fieldnames)).unwrap()
     }
-
-    pub(super) fn validate(
-        &self,
-        ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
-    ) -> Result<ValidTarget, Vec<TargetErrorInner>> {
-        let Self {
-            gene,
-            group,
-            priority,
-        } = self;
-
-        let mut errors = Vec::new();
-
-        if group.is_none() {
-            errors.push(TargetErrorInner::MissingField { fieldname: "group" });
-        }
-
-        let priority =
-            parse_priority_field(priority.as_deref()).map_or_else(|err| errors.push_err(err), Some);
-
-        let valid_gene = ValidGene::from_unvalidated(gene, ensembl_id_to_gene)
-            .map_or_else(|err| errors.push_err(err), Some);
-
-        match (valid_gene, group, priority) {
-            (
-                Some(ValidGene {
-                    ensembl_id,
-                    gene_name,
-                }),
-                Some(group),
-                Some(priority),
-            ) => Ok(ValidTarget {
-                ensembl_id,
-                gene_name,
-                group: group.to_ascii_lowercase(),
-                priority,
-            }),
-            _ => Err(errors),
-        }
-    }
-}
-
-fn parse_priority_field(s: Option<&str>) -> Result<Priority, TargetErrorInner> {
-    let Some(s) = s else {
-        return Err(TargetErrorInner::MissingField {
-            fieldname: "priority",
-        });
-    };
-
-    Priority::from_str(s).map_err(|_| TargetErrorInner::InvalidPriority {
-        value: s.to_owned(),
-        allowed: Priority::VARIANTS,
-    })
 }
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, Hash)]
@@ -158,25 +106,135 @@ pub(super) enum Priority {
     Backup,
 }
 
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
+pub(crate) enum TargetId {
+    EnsemblId(EnsemblId),
+    Custom(Option<UnvalidatedEnsemblId>),
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
+pub(crate) enum TargetName {
+    GeneName(GeneName),
+    Custom(Option<UnvalidatedGeneName>),
+}
+
+#[cfg(test)]
+impl std::fmt::Display for TargetName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::GeneName(g) => g.fmt(f),
+            Self::Custom(c) => c
+                .as_ref()
+                .map(UnvalidatedGeneName::as_str)
+                .unwrap_or_default()
+                .fmt(f),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 pub struct ValidTarget {
-    ensembl_id: EnsemblId,
-    gene_name: GeneName,
+    ensembl_id: TargetId,
+    gene_name: TargetName,
     group: String,
     priority: Priority,
+    custom: bool,
 }
 
 impl ValidTarget {
-    pub(crate) fn gene(&self) -> ValidGene {
-        ValidGene {
-            ensembl_id: self.ensembl_id,
-            gene_name: self.gene_name,
-        }
+    pub(crate) fn id_and_name(&self) -> (TargetId, TargetName) {
+        (self.ensembl_id.clone(), self.gene_name.clone())
     }
 
     pub(super) fn priority(&self) -> Priority {
         self.priority
     }
+
+    pub(super) fn from_unvalidated(
+        UnvalidatedTarget {
+            gene,
+            group,
+            priority,
+            custom,
+        }: &UnvalidatedTarget,
+        ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
+    ) -> Result<Self, Vec<TargetErrorInner>> {
+        let mut errors = Vec::new();
+
+        let group = group.as_deref().map(str::to_ascii_lowercase);
+
+        if group.is_none() {
+            errors.push(TargetErrorInner::MissingField { fieldname: "group" });
+        }
+
+        let priority =
+            parse_priority_field(priority.as_deref()).map_or_else(|err| errors.push_err(err), Some);
+
+        let is_custom =
+            parse_is_custom(custom.as_deref()).map_or_else(|err| errors.push_err(err), Some);
+
+        let valid_gene = match is_custom {
+            Some(true) => None,
+            Some(false) => ValidGene::from_unvalidated(&gene, ensembl_id_to_gene)
+                .map_or_else(|err| errors.push_err(err), Some),
+            None => None,
+        };
+
+        match (valid_gene, group, priority, is_custom) {
+            (
+                Some(ValidGene {
+                    ensembl_id,
+                    gene_name,
+                }),
+                Some(group),
+                Some(priority),
+                Some(custom),
+            ) => Ok(ValidTarget {
+                ensembl_id: TargetId::EnsemblId(ensembl_id),
+                gene_name: TargetName::GeneName(gene_name),
+                group,
+                priority,
+                custom,
+            }),
+            (None, Some(group), Some(priority), Some(true)) => Ok(ValidTarget {
+                ensembl_id: TargetId::Custom(gene.ensembl_id.clone()),
+                gene_name: TargetName::Custom(gene.gene_name.clone()),
+                group,
+                priority,
+                custom: true,
+            }),
+            _ => Err(errors),
+        }
+    }
+}
+
+fn parse_is_custom(s: Option<&str>) -> Result<bool, TargetErrorInner> {
+    let Some(s) = s else {
+        return Ok(false);
+    };
+
+    if s.eq_ignore_ascii_case("true") {
+        Ok(true)
+    } else if s.eq_ignore_ascii_case("false") {
+        Ok(false)
+    } else {
+        Err(TargetErrorInner::MalformedCsv {
+            reason: "field 'custom' must be 'true', 'false', or empty ('')".to_owned(),
+        })
+    }
+}
+
+fn parse_priority_field(s: Option<&str>) -> Result<Priority, TargetErrorInner> {
+    let Some(s) = s else {
+        return Err(TargetErrorInner::MissingField {
+            fieldname: "priority",
+        });
+    };
+
+    Priority::from_str(s).map_err(|_| TargetErrorInner::InvalidPriority {
+        value: s.to_owned(),
+        allowed: Priority::VARIANTS,
+    })
 }
 
 #[cfg(test)]
@@ -190,7 +248,7 @@ mod tests {
             xenium_v1_human_ensembl_id_to_gene,
         },
         csv_util::read_csv_trimmed,
-        target::{Priority, UnvalidatedGene, UnvalidatedTarget, ValidGene},
+        target::{Priority, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget},
     };
 
     #[test]
@@ -202,9 +260,11 @@ mod tests {
             },
             group: Some("Group0".to_owned()),
             priority: Some("must_have".to_owned()),
+            custom: None,
         };
 
-        let valid_target = target.validate(xenium_v1_human_ensembl_id_to_gene).unwrap();
+        let valid_target =
+            ValidTarget::from_unvalidated(&target, xenium_v1_human_ensembl_id_to_gene).unwrap();
 
         assert_eq!(valid_target.group, "group0", "group was not lowercased");
     }
@@ -218,11 +278,11 @@ mod tests {
             },
             group: None,
             priority: Some("urgent".to_owned()),
+            custom: None,
         };
 
-        let errors = target
-            .validate(xenium_v1_human_ensembl_id_to_gene)
-            .unwrap_err();
+        let errors =
+            ValidTarget::from_unvalidated(&target, xenium_v1_human_ensembl_id_to_gene).unwrap_err();
 
         assert_eq!(
             errors,
@@ -282,6 +342,7 @@ mod tests {
                 },
                 group: None,
                 priority: None,
+                custom: None
             }
         );
     }

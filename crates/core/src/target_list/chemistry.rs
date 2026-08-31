@@ -88,10 +88,14 @@ impl UnvalidatedEnsemblId {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnvalidatedGeneName(String);
 
+#[cfg(test)]
 impl UnvalidatedGeneName {
-    #[cfg(test)]
     pub(super) fn new(gene_name: String) -> Self {
         Self(gene_name)
+    }
+
+    pub(super) fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
