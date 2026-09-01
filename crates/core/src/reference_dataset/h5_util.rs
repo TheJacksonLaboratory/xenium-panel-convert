@@ -149,8 +149,8 @@ pub(super) fn to_ascii<const N: usize>(s: &VarLenUnicode) -> FixedAscii<N> {
     FixedAscii::from_ascii(&s).expect("all strings are ASCII in this context")
 }
 
-pub(super) fn create_h5_group(file: &File, path: &str) -> Result<Group, CreateH5GroupError> {
-    file.create_group(path).map_err(|e| CreateH5GroupError {
+pub(super) fn create_h5_group(file: &File, path: &str) -> Result<Group, WriteH5ObjectError> {
+    file.create_group(path).map_err(|e| WriteH5ObjectError {
         object_path: path.to_owned(),
         reason: e.to_string(),
     })
@@ -160,7 +160,7 @@ pub(super) fn write_dataset_to_h5_group<'d, A, T, D>(
     group: &Group,
     path: &str,
     data: A,
-) -> Result<(), WriteH5DatasetError>
+) -> Result<(), WriteH5ObjectError>
 where
     A: Into<ArrayView<'d, T, D>>,
     T: H5Type,
@@ -170,7 +170,7 @@ where
         .new_dataset_builder()
         .with_data(data)
         .create(path)
-        .map_err(|e| WriteH5DatasetError {
+        .map_err(|e| WriteH5ObjectError {
             object_path: path.to_owned(),
             reason: e.to_string(),
         })?;
@@ -225,16 +225,8 @@ pub enum FieldType {
     Dataset,
 }
 
-#[derive(Debug, Clone, Serialize, thiserror::Error)]
-#[error("failed to create H5 group at {object_path} - {reason}")]
-pub struct CreateH5GroupError {
-    pub object_path: String,
-    pub reason: String,
-}
-
-#[derive(Debug, Clone, Serialize, thiserror::Error)]
-#[error("failed to write H5 dataset at {object_path} - {reason}")]
-pub struct WriteH5DatasetError {
+#[derive(Debug, Clone, Serialize)]
+pub struct WriteH5ObjectError {
     pub object_path: String,
     pub reason: String,
 }

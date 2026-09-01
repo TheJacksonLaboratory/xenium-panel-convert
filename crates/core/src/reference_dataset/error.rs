@@ -4,7 +4,7 @@ use serde::Serialize;
 use crate::{
     error::Hinted,
     reference_dataset::{
-        h5_util::{CreateH5GroupError, ReadH5FieldError, WriteH5DatasetError},
+        h5_util::{ReadH5FieldError, WriteH5ObjectError},
         pseudo_anndata::ShapeMismatchError,
         umi_counts::UmiCountsError,
         var::VarError,
@@ -29,7 +29,9 @@ impl ReadReferenceDatasetErrorSet {
 #[derive(Clone, Debug, Serialize, thiserror::Error)]
 #[serde(tag = "component", rename_all = "snake_case")]
 pub enum ReadReferenceDatasetError {
-    #[error("the file could not be opened as an H5 file ({reason}) - ensure it exists and was written by scanpy")]
+    #[error(
+        "the file could not be opened as an H5 file ({reason}) - ensure it exists and was written by scanpy"
+    )]
     H5File { reason: String },
     #[error(transparent)]
     UmiCounts(#[from] UmiCountsError),
@@ -50,15 +52,12 @@ pub enum WriteReferenceDatasetError {
     CreateOutputDir { path: Utf8PathBuf, reason: String },
     #[error("failed to create matrix.h5 - {reason}")]
     CreateMatrixFile { path: Utf8PathBuf, reason: String },
-    #[error("{error}")]
-    CreateH5Group {
+    #[error(
+        "failed to write H5 object {} to file {path} ({})", error.object_path, error.reason
+    )]
+    WriteH5Object {
         path: Utf8PathBuf,
-        error: CreateH5GroupError,
-    },
-    #[error("{error}")]
-    WriteH5Dataset {
-        path: Utf8PathBuf,
-        error: WriteH5DatasetError,
+        error: WriteH5ObjectError,
     },
     #[error("cannot overwrite {path} - move or delete the existing annotation.csv file")]
     AnnotationsCsvExists { path: Utf8PathBuf },

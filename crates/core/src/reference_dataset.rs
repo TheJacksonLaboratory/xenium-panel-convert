@@ -133,17 +133,12 @@ fn write_matrix(
             reason: e.to_string(),
         })?;
 
-    let matrix_group = create_h5_group(&file, "matrix").map_err(|error| {
-        WriteReferenceDatasetError::CreateH5Group {
-            path: path.to_path_buf(),
-            error,
-        }
-    })?;
-
-    let write_err = |error| WriteReferenceDatasetError::WriteH5Dataset {
+    let write_err = |error| WriteReferenceDatasetError::WriteH5Object {
         path: path.to_path_buf(),
         error,
     };
+
+    let matrix_group = create_h5_group(&file, "matrix").map_err(write_err)?;
 
     write_dataset_to_h5_group(&matrix_group, "barcodes", dataset.barcodes()).map_err(write_err)?;
 
