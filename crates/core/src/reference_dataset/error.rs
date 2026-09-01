@@ -1,4 +1,4 @@
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
 
 use crate::{
@@ -11,25 +11,26 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Serialize, thiserror::Error)]
-#[serde(untagged)]
-pub enum ReadReferenceDatasetErrorSet {
-    #[error("invalid H5 file at {path} ({reason}) - {hint}")]
-    InvalidH5File {
-        path: Utf8PathBuf,
-        reason: String,
-        hint: &'static str,
-    },
-    #[error("invalid matrix")]
-    Matrix {
-        path: Utf8PathBuf,
-        errors: Vec<Hinted<ReadReferenceDatasetError>>,
-    },
+#[derive(Clone, Debug, Serialize)]
+pub struct ReadReferenceDatasetErrorSet {
+    pub path: Utf8PathBuf,
+    pub errors: Vec<Hinted<ReadReferenceDatasetError>>,
+}
+
+impl ReadReferenceDatasetErrorSet {
+    pub(super) fn new(path: &Utf8Path, errors: Vec<ReadReferenceDatasetError>) -> Self {
+        Self {
+            path: path.to_owned(),
+            errors: errors.into_iter().map(Hinted::new).collect(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, thiserror::Error)]
 #[serde(tag = "component", rename_all = "snake_case")]
 pub enum ReadReferenceDatasetError {
+    #[error("the file could not be opened as an H5 file ({reason}) - ensure it exists and was written by scanpy")]
+    H5File { reason: String },
     #[error(transparent)]
     UmiCounts(#[from] UmiCountsError),
     #[error(transparent)]

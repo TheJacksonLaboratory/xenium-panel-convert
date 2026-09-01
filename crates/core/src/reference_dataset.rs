@@ -6,7 +6,7 @@ use ndarray::Array1;
 use serde::Serialize;
 
 use crate::{
-    error::{Hinted, collect_error},
+    error::collect_error,
     reference_dataset::{
         columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
         error::{
@@ -40,12 +40,14 @@ pub fn read_reference_dataset(
 ) -> Result<PseudoAnndata, ReadReferenceDatasetErrorSet> {
     let mut errors = Vec::new();
 
-    let file =
-        hdf5_metno::File::open(path).map_err(|e| ReadReferenceDatasetErrorSet::InvalidH5File {
-            path: path.to_owned(),
-            reason: e.to_string(),
-            hint: "ensure the H5AD file is properly formatted",
-        })?;
+    let file = hdf5_metno::File::open(path).map_err(|e| {
+        ReadReferenceDatasetErrorSet::new(
+            path,
+            vec![ReadReferenceDatasetError::H5File {
+                reason: e.to_string(),
+            }],
+        )
+    })?;
 
     let counts = collect_error(read_umi_counts_from_h5ad(&file), &mut errors);
 
@@ -66,25 +68,18 @@ pub fn read_reference_dataset(
         &mut errors,
     );
 
-    let collect_matrix_errors =
-        |errs: Vec<ReadReferenceDatasetError>| ReadReferenceDatasetErrorSet::Matrix {
-            path: path.to_owned(),
-            errors: errs.into_iter().map(Hinted::new).collect(),
-        };
-
     let (Some(counts), Some(barcodes), Some(cell_annotations), Some(features)) =
         (counts, barcodes, cell_annotations, features)
     else {
-        return Err(collect_matrix_errors(errors));
+        return Err(ReadReferenceDatasetErrorSet::new(path, errors));
     };
 
-    let anndata =
-        PseudoAnndata::new(counts, barcodes, cell_annotations, features).map_err(|err| {
-            errors.push(err.into());
-            collect_matrix_errors(errors)
-        })?;
+    let anndata = collect_error(
+        PseudoAnndata::new(counts, barcodes, cell_annotations, features),
+        &mut errors,
+    );
 
-    Ok(anndata)
+    anndata.ok_or_else(|| ReadReferenceDatasetErrorSet::new(path, errors))
 }
 
 // See https://www.10xgenomics.com/support/software/cell-ranger/latest/analysis/outputs/cr-outputs-h5-matrices for format specifics
@@ -242,21 +237,19 @@ mod tests {
 
     #[test]
     fn read_collects_errors_from_every_field() {
-        let path = "test-data/csr_adata.h5ad";
+        let dataset_path = "test-data/csr_adata.h5ad";
 
-        let ReadReferenceDatasetErrorSet::Matrix { path, errors } = read_reference_dataset(
-            Utf8Path::new(path),
+        let ReadReferenceDatasetErrorSet { path, errors } = read_reference_dataset(
+            Utf8Path::new(dataset_path),
             &CellBarcodeCol("foo".to_owned()),
             &CellAnnotationCol("bar".to_owned()),
             &EnsemblIdCol("baz".to_owned()),
             &GeneNameCol("qux".to_owned()),
             Transcriptome::new(TranscriptomeName::Grch382020A, false),
         )
-        .unwrap_err() else {
-            unreachable!();
-        };
+        .unwrap_err();
 
-        assert_eq!(path.as_str(), path);
+        assert_eq!(path, dataset_path);
 
         std::assert_matches!(
             errors.as_slice(),
