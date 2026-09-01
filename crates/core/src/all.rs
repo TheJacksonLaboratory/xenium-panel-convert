@@ -5,13 +5,14 @@ use crate::{
         transcriptome::{Transcriptome, TranscriptomeName},
     },
     target_list::{
-        chemistry::Species, target::ValidGene, xenium_panel_designer::XeniumPanelDesignerGeneList,
+        chemistry::Species,
+        target::{ValidGene, ValidTarget},
     },
 };
 
 #[must_use]
 pub fn validate_target_list_and_reference_dataset_compatibility(
-    target_list: &XeniumPanelDesignerGeneList,
+    target_list: &[ValidTarget],
     target_list_species: Species,
     reference_dataset: &PseudoAnndata,
     reference_dataset_transcriptome: TranscriptomeName,
@@ -29,8 +30,8 @@ pub fn validate_target_list_and_reference_dataset_compatibility(
 
     let mut warnings = Vec::with_capacity(target_list.len());
 
-    for target in target_list.as_slice() {
-        let Some(gene) = target.gene() else {
+    for target in target_list {
+        let Some(gene) = target.gene().valid_gene() else {
             continue;
         };
 

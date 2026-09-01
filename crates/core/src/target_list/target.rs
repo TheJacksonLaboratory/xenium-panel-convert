@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub struct UnvalidatedGene {
     pub ensembl_id: Option<UnvalidatedEnsemblId>,
     pub gene_name: Option<UnvalidatedGeneName>,
@@ -106,36 +106,48 @@ pub(super) enum Priority {
     Backup,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
-pub(crate) enum TargetId {
-    EnsemblId(EnsemblId),
-    Custom(Option<UnvalidatedEnsemblId>),
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum TargetGene {
+    Standard(ValidGene),
+    Custom(UnvalidatedGene),
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
-pub(crate) enum TargetName {
-    GeneName(GeneName),
-    Custom(Option<UnvalidatedGeneName>),
+impl TargetGene {
+    pub(crate) fn as_strs(&self) -> (Option<&str>, Option<&str>) {
+        match self {
+            Self::Standard(gene) => (
+                Some(gene.ensembl_id.as_str()),
+                Some(gene.gene_name.as_str()),
+            ),
+            Self::Custom(gene) => (
+                gene.ensembl_id.as_ref().map(UnvalidatedEnsemblId::as_str),
+                gene.gene_name.as_ref().map(UnvalidatedGeneName::as_str),
+            ),
+        }
+    }
+
+    pub(crate) fn valid_gene(&self) -> Option<ValidGene> {
+        match self {
+            Self::Standard(gene) => Some(*gene),
+            Self::Custom(_) => None,
+        }
+    }
+
+    fn is_custom(&self) -> bool {
+        matches!(self, Self::Custom(_))
+    }
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ValidTarget {
-    ensembl_id: TargetId,
-    gene_name: TargetName,
+    gene: TargetGene,
     group: String,
     priority: Priority,
-    custom: bool,
 }
 
 impl ValidTarget {
-    // Cloning is cheap for the vast majority of IDs
-    pub(super) fn ensembl_id(&self) -> TargetId {
-        self.ensembl_id.clone()
-    }
-
-    // Cloning is cheap for the vast majority of gene names
-    pub(super) fn gene_name(&self) -> TargetName {
-        self.gene_name.clone()
+    pub(crate) fn gene(&self) -> &TargetGene {
+        &self.gene
     }
 
     pub(super) fn priority(&self) -> Priority {
@@ -163,40 +175,62 @@ impl ValidTarget {
 
         let is_custom = collect_error(parse_custom_field(custom.as_deref()), &mut errors);
 
-        let valid_gene = match is_custom {
-            Some(true) | None => None,
+        let target_gene = match is_custom {
             Some(false) => collect_error(
                 ValidGene::from_unvalidated(gene, ensembl_id_to_gene),
                 &mut errors,
-            ),
+            )
+            .map(TargetGene::Standard),
+            Some(true) => Some(TargetGene::Custom(gene.clone())),
+            None => None,
         };
 
-        match (valid_gene, group, priority, is_custom) {
-            (
-                Some(ValidGene {
-                    ensembl_id,
-                    gene_name,
-                }),
-                Some(group),
-                Some(priority),
-                Some(custom),
-            ) => Ok(ValidTarget {
-                ensembl_id: TargetId::EnsemblId(ensembl_id),
-                gene_name: TargetName::GeneName(gene_name),
+        match (target_gene, group, priority) {
+            (Some(gene), Some(group), Some(priority)) => Ok(ValidTarget {
+                gene,
                 group,
                 priority,
-                custom,
-            }),
-            (None, Some(group), Some(priority), Some(true)) => Ok(ValidTarget {
-                ensembl_id: TargetId::Custom(gene.ensembl_id.clone()),
-                gene_name: TargetName::Custom(gene.gene_name.clone()),
-                group,
-                priority,
-                custom: true,
             }),
             _ => Err(errors),
         }
     }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ValidTargetCsvRow<'a> {
+    ensembl_id: Option<&'a str>,
+    gene_name: Option<&'a str>,
+    group: &'a str,
+    priority: Priority,
+    custom: bool,
+}
+
+impl<'a> ValidTargetCsvRow<'a> {
+    fn from_valid_target(
+        ValidTarget {
+            gene,
+            group,
+            priority,
+        }: &'a ValidTarget,
+    ) -> Self {
+        let (ensembl_id, gene_name) = gene.as_strs();
+
+        Self {
+            ensembl_id,
+            gene_name,
+            group,
+            priority: *priority,
+            custom: gene.is_custom(),
+        }
+    }
+}
+
+#[must_use]
+pub fn to_valid_target_csv_rows(targets: &[ValidTarget]) -> Vec<ValidTargetCsvRow<'_>> {
+    targets
+        .iter()
+        .map(ValidTargetCsvRow::from_valid_target)
+        .collect()
 }
 
 fn parse_custom_field(s: Option<&str>) -> Result<bool, TargetError> {
@@ -242,23 +276,8 @@ mod tests {
             xenium_v1_human_ensembl_id_to_gene,
         },
         csv_util::read_csv_trimmed,
-        target::{
-            Priority, TargetName, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget,
-        },
+        target::{Priority, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget},
     };
-
-    impl std::fmt::Display for TargetName {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Self::GeneName(g) => g.fmt(f),
-                Self::Custom(c) => c
-                    .as_ref()
-                    .map(UnvalidatedGeneName::as_str)
-                    .unwrap_or_default()
-                    .fmt(f),
-            }
-        }
-    }
 
     #[test]
     fn valid_target() {

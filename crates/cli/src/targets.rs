@@ -10,7 +10,8 @@ use xenium_panel_convert_core::target_list::{
         xenium_v1_mouse_ensembl_id_to_gene,
     },
     parse_target_list,
-    xenium_panel_designer::XeniumPanelDesignerGeneList,
+    target::{ValidTarget, to_valid_target_csv_rows},
+    xenium_panel_designer::to_xenium_panel_designer_csv_rows,
 };
 
 use crate::write::{write_csv_to_file, write_json_to_file};
@@ -24,7 +25,7 @@ pub(super) fn convert_target_list(
         chemistry,
     }: &TargetListCliOptions,
     output_dir: &Utf8Path,
-) -> anyhow::Result<Option<XeniumPanelDesignerGeneList>> {
+) -> anyhow::Result<Option<Vec<ValidTarget>>> {
     let target_list = fs::read_to_string(targets_path)
         .with_context(|| format!("failed to read target-list from {targets_path}"))?;
 
@@ -45,15 +46,17 @@ pub(super) fn convert_target_list(
 
     match result {
         Ok(targets) => {
-            write_csv_to_file(&targets, &output_file_path("validated-targets.csv"))?;
-
-            let gene_list = XeniumPanelDesignerGeneList::from_valid_targets(targets);
             write_csv_to_file(
-                gene_list.as_slice(),
+                &to_valid_target_csv_rows(&targets),
+                &output_file_path("validated-targets.csv"),
+            )?;
+
+            write_csv_to_file(
+                &to_xenium_panel_designer_csv_rows(&targets),
                 &output_file_path("xenium-panel-designer-targets.csv"),
             )?;
 
-            Ok(Some(gene_list))
+            Ok(Some(targets))
         }
         Err(e) => {
             write_json_to_file(&e, &output_file_path("target-list-errors.json"))?;

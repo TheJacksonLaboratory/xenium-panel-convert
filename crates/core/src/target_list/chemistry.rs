@@ -45,6 +45,13 @@ impl Display for EnsemblId {
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneName(&'static str);
 
+impl GeneName {
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        self.0
+    }
+}
+
 impl PartialEq<&str> for GeneName {
     fn eq(&self, other: &&str) -> bool {
         self.0 == *other
@@ -79,7 +86,6 @@ impl UnvalidatedEnsemblId {
             .any(|c| c == '.' || (c.is_alphabetic() && !c.is_uppercase()))
     }
 
-    #[cfg(test)]
     pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
@@ -88,8 +94,8 @@ impl UnvalidatedEnsemblId {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnvalidatedGeneName(String);
 
-#[cfg(test)]
 impl UnvalidatedGeneName {
+    #[cfg(test)]
     pub(super) fn new(gene_name: String) -> Self {
         Self(gene_name)
     }

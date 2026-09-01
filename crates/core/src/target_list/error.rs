@@ -30,9 +30,7 @@ pub enum TargetError {
         value: String,
         allowed: &'static [&'static str],
     },
-    #[error(
-        "the Ensembl ID is versioned or lowercase - remove the version and uppercase the ID"
-    )]
+    #[error("the Ensembl ID is versioned or lowercase - remove the version and uppercase the ID")]
     VersionedOrLowercaseEnsemblId { correct_gene: Option<ValidGene> },
     #[error("no Ensembl ID was provided - add one")]
     NoEnsemblId,

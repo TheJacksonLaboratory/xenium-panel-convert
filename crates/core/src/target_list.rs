@@ -60,7 +60,8 @@ pub fn parse_target_list(
         let row_errors = match ValidTarget::from_unvalidated(&submitted_target, ensembl_id_to_gene)
         {
             Ok(valid_target) => {
-                if seen_genes.insert((valid_target.ensembl_id(), valid_target.gene_name())) {
+                // Cloning is cheap for the vast majority of genes
+                if seen_genes.insert(valid_target.gene().clone()) {
                     valid_targets.push(valid_target);
 
                     continue;
@@ -111,7 +112,13 @@ mod tests {
         )
         .unwrap();
 
-        let gene_names: Vec<_> = targets.iter().map(|t| t.gene_name().to_string()).collect();
+        let gene_names: Vec<_> = targets
+            .iter()
+            .map(|target| {
+                let (_, gene_name) = target.gene().as_strs();
+                gene_name.unwrap()
+            })
+            .collect();
         assert_eq!(
             gene_names,
             ["TP53", "LEPR", "TMPO"],

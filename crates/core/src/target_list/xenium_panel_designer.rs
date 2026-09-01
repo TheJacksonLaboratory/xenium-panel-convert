@@ -1,70 +1,43 @@
 use serde::Serialize;
 
-use crate::target_list::{
-    ValidTarget,
-    target::{self, TargetId, TargetName, ValidGene},
-};
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(transparent)]
-pub struct XeniumPanelDesignerGeneList(Vec<XeniumPanelDesignerGene>);
-
-impl XeniumPanelDesignerGeneList {
-    pub fn from_valid_targets(mut valid_targets: Vec<ValidTarget>) -> Self {
-        valid_targets.sort_by_key(super::target::ValidTarget::priority);
-
-        Self(
-            valid_targets
-                .iter()
-                .map(XeniumPanelDesignerGene::from_valid_target)
-                .collect(),
-        )
-    }
-
-    #[must_use]
-    pub fn as_slice(&self) -> &[XeniumPanelDesignerGene] {
-        &self.0
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.0.iter().len()
-    }
-}
+use crate::target_list::target::{Priority, ValidTarget};
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct XeniumPanelDesignerGene {
+pub struct XeniumPanelDesignerGene<'a> {
     #[serde(rename = "Gene")]
-    gene: TargetName,
+    gene: Option<&'a str>,
     #[serde(rename = "Ensembl ID")]
-    ensembl_id: TargetId,
+    ensembl_id: Option<&'a str>,
     #[serde(rename = "Probe sets")]
     probe_sets: Option<u16>,
     #[serde(rename = "Force")]
     force: Option<Force>,
 }
 
-impl XeniumPanelDesignerGene {
-    fn from_valid_target(target: &ValidTarget) -> Self {
+impl<'a> XeniumPanelDesignerGene<'a> {
+    fn from_valid_target(target: &'a ValidTarget) -> Self {
+        let (ensembl_id, gene) = target.gene().as_strs();
+
         Self {
-            gene: target.gene_name(),
-            ensembl_id: target.ensembl_id(),
+            gene,
+            ensembl_id,
             probe_sets: None,
-            force: (target.priority() == target::Priority::MustHave).then_some(Force::Forced),
+            force: (target.priority() == Priority::MustHave).then_some(Force::Forced),
         }
     }
+}
 
-    pub(crate) fn gene(&self) -> Option<ValidGene> {
-        let (TargetId::EnsemblId(ensembl_id), TargetName::GeneName(gene_name)) =
-            (&self.ensembl_id, &self.gene)
-        else {
-            return None;
-        };
+#[must_use]
+pub fn to_xenium_panel_designer_csv_rows(
+    targets: &[ValidTarget],
+) -> Vec<XeniumPanelDesignerGene<'_>> {
+    let mut targets_by_priority: Vec<&ValidTarget> = targets.iter().collect();
+    targets_by_priority.sort_by_key(|target| target.priority());
 
-        Some(ValidGene {
-            ensembl_id: *ensembl_id,
-            gene_name: *gene_name,
-        })
-    }
+    targets_by_priority
+        .into_iter()
+        .map(XeniumPanelDesignerGene::from_valid_target)
+        .collect()
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -80,30 +53,30 @@ mod tests {
     use crate::target_list::{
         chemistry::xenium_v1_human_ensembl_id_to_gene,
         parse_target_list,
-        xenium_panel_designer::{Force, XeniumPanelDesignerGeneList},
+        target::ValidTarget,
+        xenium_panel_designer::{Force, to_xenium_panel_designer_csv_rows},
     };
 
-    fn gene_list() -> XeniumPanelDesignerGeneList {
+    fn valid_targets() -> Vec<ValidTarget> {
         // Deliberately not in priority order
         let target_list = "ensembl_id,gene_name,group,priority\nENSG00000116678,LEPR,group0,\
                            backup\nENSG00000141510,TP53,group0,must_have\nENSG00000120802,TMPO,\
                            group1,desired";
 
-        let targets = parse_target_list(
+        parse_target_list(
             target_list,
             &HashMap::new(),
             xenium_v1_human_ensembl_id_to_gene,
         )
-        .unwrap();
-
-        XeniumPanelDesignerGeneList::from_valid_targets(targets)
+        .unwrap()
     }
 
     #[test]
     fn targets_are_sorted_by_priority() {
-        let XeniumPanelDesignerGeneList(genes) = gene_list();
+        let targets = valid_targets();
+        let genes = to_xenium_panel_designer_csv_rows(&targets);
 
-        let gene_names: Vec<_> = genes.iter().map(|g| g.gene.to_string()).collect();
+        let gene_names: Vec<_> = genes.iter().map(|g| g.gene.unwrap()).collect();
         assert_eq!(
             gene_names,
             ["TP53", "TMPO", "LEPR"],
@@ -121,8 +94,8 @@ mod tests {
     fn serializes_the_panel_designer_columns() {
         let mut writer = csv::Writer::from_writer(Vec::new());
 
-        let XeniumPanelDesignerGeneList(genes) = gene_list();
-        for gene in &genes {
+        let targets = valid_targets();
+        for gene in to_xenium_panel_designer_csv_rows(&targets) {
             writer.serialize(gene).unwrap();
         }
 
