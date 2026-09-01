@@ -5,7 +5,7 @@ use crate::target_list::{
     target::{self, TargetId, TargetName, ValidGene},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(transparent)]
 pub struct XeniumPanelDesignerGeneList(Vec<XeniumPanelDesignerGene>);
 
@@ -31,7 +31,7 @@ impl XeniumPanelDesignerGeneList {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct XeniumPanelDesignerGene {
     #[serde(rename = "Gene")]
     gene: TargetName,
@@ -45,11 +45,9 @@ pub struct XeniumPanelDesignerGene {
 
 impl XeniumPanelDesignerGene {
     fn from_valid_target(target: &ValidTarget) -> Self {
-        let (ensembl_id, gene_name) = target.id_and_name();
-
         Self {
-            gene: gene_name,
-            ensembl_id,
+            gene: target.gene_name(),
+            ensembl_id: target.ensembl_id(),
             probe_sets: None,
             force: (target.priority() == target::Priority::MustHave).then_some(Force::Forced),
         }

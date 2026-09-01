@@ -118,21 +118,7 @@ pub(crate) enum TargetName {
     Custom(Option<UnvalidatedGeneName>),
 }
 
-#[cfg(test)]
-impl std::fmt::Display for TargetName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::GeneName(g) => g.fmt(f),
-            Self::Custom(c) => c
-                .as_ref()
-                .map(UnvalidatedGeneName::as_str)
-                .unwrap_or_default()
-                .fmt(f),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct ValidTarget {
     ensembl_id: TargetId,
     gene_name: TargetName,
@@ -142,8 +128,14 @@ pub struct ValidTarget {
 }
 
 impl ValidTarget {
-    pub(crate) fn id_and_name(&self) -> (TargetId, TargetName) {
-        (self.ensembl_id.clone(), self.gene_name.clone())
+    // Cloning is cheap for the vast majority of IDs
+    pub(super) fn ensembl_id(&self) -> TargetId {
+        self.ensembl_id.clone()
+    }
+
+    // Cloning is cheap for the vast majority of gene names
+    pub(super) fn gene_name(&self) -> TargetName {
+        self.gene_name.clone()
     }
 
     pub(super) fn priority(&self) -> Priority {
@@ -250,8 +242,23 @@ mod tests {
             xenium_v1_human_ensembl_id_to_gene,
         },
         csv_util::read_csv_trimmed,
-        target::{Priority, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget},
+        target::{
+            Priority, TargetName, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget,
+        },
     };
+
+    impl std::fmt::Display for TargetName {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::GeneName(g) => g.fmt(f),
+                Self::Custom(c) => c
+                    .as_ref()
+                    .map(UnvalidatedGeneName::as_str)
+                    .unwrap_or_default()
+                    .fmt(f),
+            }
+        }
+    }
 
     #[test]
     fn valid_target() {
