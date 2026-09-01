@@ -17,7 +17,7 @@ pub(super) fn read_features_from_h5ad(
     file: &File,
     ensembl_id_col: &EnsemblIdCol,
     gene_name_col: &GeneNameCol,
-    transcriptome: Transcriptome,
+    transcriptome: Option<Transcriptome>,
 ) -> Result<Features, VarError> {
     let features = [
         ensembl_id_col.as_str(),
@@ -28,25 +28,35 @@ pub(super) fn read_features_from_h5ad(
     .map(|path| read_1d_string_dataset(file, &path));
 
     let [Ok(ensembl_ids), Ok(gene_names), Ok(feature_types)] = features else {
-        return Err(VarError::InvalidFields {
-            errors: features
-                .into_iter()
-                .filter_map(std::result::Result::err)
-                .collect(),
+        let [ensembl_ids_error, gene_names_error, feature_types_error] = features.map(Result::err);
+
+        return Err(VarError::InvalidH5Fields {
+            ensembl_ids_error,
+            gene_names_error,
+            feature_types_error,
         });
     };
 
     check_feature_array_lens(&ensembl_ids, &gene_names, &feature_types)?;
 
-    let (n_expected_genes, n_expected_genes2) = transcriptome.n_genes();
-    let n_found_genes = ensembl_ids.len();
-    let expected_genes = transcriptome
-        .gene_map(n_found_genes)
-        .ok_or(VarError::FilteredGenes {
+    let Some(transcriptome) = transcriptome else {
+        return Ok(Features {
+            ensembl_ids: ensembl_ids.mapv_into_any(|s| to_ascii(&s)),
+            gene_names: gene_names.mapv_into_any(|s| to_ascii(&s)),
+            feature_types: feature_types.mapv_into_any(|s| to_ascii(&s)),
+        });
+    };
+
+    let n_genes_in_dataset = ensembl_ids.len();
+    let expected_genes = transcriptome.gene_map(n_genes_in_dataset).ok_or_else(|| {
+        let (n_expected_genes, n_expected_genes2) = transcriptome.n_genes();
+
+        VarError::FilteredGenes {
             n_expected_genes,
             n_expected_genes2,
-            n_found_genes: ensembl_ids.len(),
-        })?;
+            n_found_genes: n_genes_in_dataset,
+        }
+    })?;
 
     validate_var_matches_transcriptome(&ensembl_ids, &gene_names, expected_genes)?;
 
@@ -78,33 +88,50 @@ fn validate_var_matches_transcriptome(
     gene_names: &Array1<VarLenUnicode>,
     expected_genes: &phf::Map<&str, &str>,
 ) -> Result<(), VarError> {
+    let mut errors = Vec::new();
+    let mut hints = HashSet::new();
     let mut seen = HashSet::with_capacity(ensembl_ids.len());
 
     for (id, name) in ensembl_ids.iter().zip(gene_names) {
         if !seen.insert(id) {
-            return Err(VarError::DuplicateFeature {
+            errors.push(VarRowError::DuplicateGene {
                 ensembl_id: id.to_string(),
                 gene_name: name.to_string(),
             });
+
+            hints.insert("some genes were found more than once");
+
+            continue;
         }
 
-        let expected_gene_name =
-            expected_genes
-                .get(id)
-                .ok_or_else(|| VarError::UnrecognizedFeature {
-                    ensembl_id: id.to_string(),
-                })?;
+        let Some(expected_gene_name) = expected_genes.get(id) else {
+            errors.push(VarRowError::UnrecognizedEnsemblId {
+                ensembl_id: id.to_string(),
+            });
+            hints.insert("some Ensembl IDs were not found in the reference transcriptome");
+
+            continue;
+        };
 
         if name != *expected_gene_name {
-            return Err(VarError::EnsemblIdGeneNameMismatch {
+            errors.push(VarRowError::EnsemblIdGeneNameMismatch {
                 ensembl_id: id.to_string(),
                 expected_gene_name,
                 found_gene_name: name.to_string(),
             });
+
+            hints.insert("some gene names differ between the dataset and reference transcriptome - if you used AnnData.var_names_make_unique, try regenerating the dataset without it");
         }
     }
 
-    Ok(())
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(VarError::Genes {
+            errors,
+            hints: hints.into_iter().collect(),
+        })
+    }
 }
 
 // Human Ensembl IDs are 15 characters while mouse Ensembl IDs are 18
@@ -153,26 +180,13 @@ pub enum VarError {
         "one or more fields in .var were improperly formatted or nonexistent - did you pass in \
          the right column names?"
     )]
-    InvalidFields { errors: Vec<ReadH5FieldError> },
-    #[error("feature {ensembl_id} ({gene_name}) was found more than once")]
-    DuplicateFeature {
-        ensembl_id: String,
-        gene_name: String,
-    },
-    #[error(
-        "unrecognized feature {ensembl_id} - if you added genes to the .var, rerun your analysis \
-         without them"
-    )]
-    UnrecognizedFeature { ensembl_id: String },
-    #[error(
-        "Ensembl ID {ensembl_id} is called {expected_gene_name} in the reference transcriptome \
-         but {found_gene_name} in the dataset - if you used AnnData.var_names_make_unique was \
-         used, try regenerating the AnnData object without it"
-    )]
-    EnsemblIdGeneNameMismatch {
-        ensembl_id: String,
-        expected_gene_name: &'static str,
-        found_gene_name: String,
+    InvalidH5Fields {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ensembl_ids_error: Option<ReadH5FieldError>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        gene_names_error: Option<ReadH5FieldError>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        feature_types_error: Option<ReadH5FieldError>,
     },
     #[error("some genes were filtered out of the dataset (expected: {}, found: {n_found_genes})",
         n_expected_genes2.map_or_else(|| n_expected_genes.to_string(), |n2| format!("{n_expected_genes} or {n2}")))]
@@ -192,16 +206,46 @@ pub enum VarError {
         gene_names_len: usize,
         feature_types_len: usize,
     },
+    #[error("")]
+    Genes {
+        errors: Vec<VarRowError>,
+        hints: Vec<&'static str>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum VarRowError {
+    DuplicateGene {
+        ensembl_id: String,
+        gene_name: String,
+    },
+
+    EnsemblIdGeneNameMismatch {
+        ensembl_id: String,
+        expected_gene_name: &'static str,
+        found_gene_name: String,
+    },
+    UnrecognizedEnsemblId {
+        ensembl_id: String,
+    },
 }
 
 #[cfg(test)]
 mod tests {
-    use hdf5_metno::File;
 
-    use crate::reference_dataset::{
-        columns::{EnsemblIdCol, GeneNameCol},
-        transcriptome::{Transcriptome, TranscriptomeName},
-        var::{VarError, read_features_from_h5ad},
+    use hdf5_metno::{File, types::VarLenUnicode};
+    use ndarray::arr1;
+
+    use crate::{
+        reference_dataset::{
+            columns::{EnsemblIdCol, GeneNameCol},
+            transcriptome::{Transcriptome, TranscriptomeName},
+            var::{
+                VarError, VarRowError, read_features_from_h5ad, validate_var_matches_transcriptome,
+            },
+        },
+        target_list::chemistry::tests::tp53_ensembl_id,
     };
 
     fn read_generated_features(
@@ -219,10 +263,10 @@ mod tests {
     #[test]
     fn filtered_genes_are_rejected() {
         // The generated datasets have 100 genes
-        let err = read_generated_features("ensembl_id", "gene_name").unwrap_err();
+        let error = read_generated_features("ensembl_id", "gene_name").unwrap_err();
 
         std::assert_matches!(
-            err,
+            error,
             VarError::FilteredGenes {
                 n_found_genes: 100,
                 ..
@@ -232,16 +276,50 @@ mod tests {
 
     #[test]
     fn missing_var_columns_are_collected() {
-        let err = read_generated_features("nonexistent", "also_nonexistent").unwrap_err();
+        std::assert_matches!(
+            read_generated_features("nonexistent", "also_nonexistent").unwrap_err(),
+            VarError::InvalidH5Fields {
+                ensembl_ids_error: Some(_),
+                gene_names_error: Some(_),
+                feature_types_error: None
+            },
+            "some H5 field-reading errors were not collected"
+        );
+    }
 
-        let VarError::InvalidFields { errors } = err else {
-            panic!("expected invalid fields, got {err:?}");
+    #[test]
+    fn all_gene_errors_are_collected() {
+        let ensembl_ids = unsafe {
+            [
+                VarLenUnicode::from_str_unchecked(tp53_ensembl_id().as_str()),
+                VarLenUnicode::from_str_unchecked("ENSG00000116678"),
+            ]
         };
 
-        assert_eq!(
-            errors.len(),
-            2,
-            "both missing columns in var should be reported"
+        let gene_names = unsafe {
+            [
+                VarLenUnicode::from_str_unchecked("foo"),
+                VarLenUnicode::from_str_unchecked("bar"),
+            ]
+        };
+
+        let transcriptome = Transcriptome::new(TranscriptomeName::Grch382024A, false).unwrap();
+
+        let VarError::Genes { errors, hints: _ } = validate_var_matches_transcriptome(
+            &arr1(&ensembl_ids),
+            &arr1(&gene_names),
+            transcriptome.gene_map(transcriptome.n_genes().0).unwrap(),
+        )
+        .unwrap_err() else {
+            unreachable!();
+        };
+
+        std::assert_matches!(
+            errors.as_slice(),
+            [
+                VarRowError::EnsemblIdGeneNameMismatch { .. },
+                VarRowError::EnsemblIdGeneNameMismatch { .. }
+            ]
         );
     }
 }

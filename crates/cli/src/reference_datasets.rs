@@ -78,7 +78,7 @@ pub(super) struct ReferenceDatasetSpec {
     gene_name_col: GeneNameCol,
     pub(super) transcriptome_name: TranscriptomeName,
     pub(super) flex: bool,
-    transcriptome: Transcriptome,
+    transcriptome: Option<Transcriptome>,
     pub(super) rename: Option<Utf8PathBuf>,
 }
 
@@ -218,6 +218,9 @@ GRCh38-2020-A | h2020
 GRCh38-2024-A | h2024
 mm10-2020-A   | m2020
 GRCm39-2024-A | m2024
+other         | o
+
+Note that setting 'transcriptome' = 'other' will disable checking .var for gene-filtering
 
 Examples:
 
@@ -252,7 +255,7 @@ mod tests {
         assert_eq!(spec.ensembl_id_col, EnsemblIdCol("id".to_owned()));
         assert_eq!(spec.gene_name_col, GeneNameCol("name".to_owned()));
         assert_eq!(spec.rename.as_deref(), Some(Utf8Path::new("renamed")));
-        std::assert_matches!(spec.transcriptome, Transcriptome::Flex2020A(_));
+        std::assert_matches!(spec.transcriptome.unwrap(), Transcriptome::Flex2020A(_));
     }
 
     #[test]

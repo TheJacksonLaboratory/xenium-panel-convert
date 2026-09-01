@@ -14,8 +14,8 @@ pub mod error;
 pub mod target;
 pub mod xenium_panel_designer;
 
-pub fn parse_target_list<'a>(
-    target_list: &'a str,
+pub fn parse_target_list(
+    target_list: &str,
     field_aliases: &HashMap<&str, &str>,
     ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
 ) -> Result<Vec<ValidTarget>, Vec<TargetErrorSet>> {
@@ -25,19 +25,17 @@ pub fn parse_target_list<'a>(
     // If we can't get headers, just return early
     let headers = reader.headers().map_err(|e| {
         vec![TargetErrorSet {
-            errors: vec![TargetErrorInner::from(e).into()],
             line_number: None,
             submitted_target: None,
+            errors: vec![TargetErrorInner::from(e).into()],
         }]
     })?;
 
-    // We initialize the list of errors from the field-renaming, but it doesn't
-    // prevent us from continuing the parsing
-    let (fieldnames, error) = rename_fields(headers, field_aliases);
-    let mut errors = error.map(|e| vec![e]).unwrap_or_default();
+    let fieldnames = rename_fields(headers, field_aliases);
 
     let mut valid_targets = Vec::with_capacity(N_GENES);
     let mut seen_genes = HashSet::with_capacity(N_GENES);
+    let mut errors = Vec::new();
 
     for record in reader.records() {
         let record = match record {

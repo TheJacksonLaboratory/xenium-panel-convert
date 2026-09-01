@@ -10,8 +10,9 @@ use crate::{
     reference_dataset::{
         columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
         error::{
-            ReadReferenceDatasetErrorInner, ReadReferenceDatasetErrorSet,
-            WriteReferenceDatasetError, WriteReferenceDatasetErrorWrapper,
+            ReadReferenceDatasetError, ReadReferenceDatasetErrorInner,
+            ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
+            WriteReferenceDatasetErrorInner,
         },
         h5_util::{create_h5_group, write_dataset_to_h5_group},
         obs::{read_cell_annotations_from_h5ad, read_cell_barcodes_from_h5ad},
@@ -37,42 +38,49 @@ pub fn read_reference_dataset(
     cell_annotation_col: &CellAnnotationCol,
     ensembl_id_col: &EnsemblIdCol,
     gene_name_col: &GeneNameCol,
-    transcriptome: Transcriptome,
+    transcriptome: Option<Transcriptome>,
 ) -> Result<PseudoAnndata, ReadReferenceDatasetErrorSet> {
     let mut errors = Vec::new();
 
-    let collect = |errors: Vec<ReadReferenceDatasetErrorInner>| ReadReferenceDatasetErrorSet {
-        path: path.to_owned(),
-        errors: errors.into_iter().map(Into::into).collect(),
-    };
-
-    let file = hdf5_metno::File::open(path).map_err(|e| {
-        collect(vec![ReadReferenceDatasetErrorInner::InvalidH5File {
+    let file =
+        hdf5_metno::File::open(path).map_err(|e| ReadReferenceDatasetErrorSet::InvalidH5File {
+            path: path.to_owned(),
             reason: e.to_string(),
-        }])
-    })?;
+            hint: "ensure the H5AD file is properly formatted",
+        })?;
 
     let counts = read_umi_counts_from_h5ad(&file).map_or_else(|err| errors.push_err(err), Some);
 
     let barcodes = read_cell_barcodes_from_h5ad(&file, cell_barcode_col)
+        .map_err(ReadReferenceDatasetErrorInner::CellBarcodes)
         .map_or_else(|err| errors.push_err(err), Some);
 
     let cell_annotations = read_cell_annotations_from_h5ad(&file, cell_annotation_col)
+        .map_err(ReadReferenceDatasetErrorInner::CellAnnotations)
         .map_or_else(|err| errors.push_err(err), Some);
 
     let features = read_features_from_h5ad(&file, ensembl_id_col, gene_name_col, transcriptome)
         .map_or_else(|err| errors.push_err(err), Some);
 
+    let collect_matrix_errors =
+        |errs: Vec<ReadReferenceDatasetErrorInner>| ReadReferenceDatasetErrorSet::Matrix {
+            path: path.to_owned(),
+            errors: errs
+                .into_iter()
+                .map(ReadReferenceDatasetError::from)
+                .collect(),
+        };
+
     let (Some(counts), Some(barcodes), Some(cell_annotations), Some(features)) =
         (counts, barcodes, cell_annotations, features)
     else {
-        return Err(collect(errors));
+        return Err(collect_matrix_errors(errors));
     };
 
     let anndata =
         PseudoAnndata::new(counts, barcodes, cell_annotations, features).map_err(|err| {
-            errors.push_err::<()>(err);
-            collect(errors)
+            errors.push(err.into());
+            collect_matrix_errors(errors)
         })?;
 
     Ok(anndata)
@@ -82,9 +90,9 @@ pub fn read_reference_dataset(
 pub fn write_reference_dataset(
     dir: &Utf8Path,
     ds: &PseudoAnndata,
-) -> Result<(), WriteReferenceDatasetErrorWrapper> {
+) -> Result<(), WriteReferenceDatasetError> {
     if !dir.exists() {
-        fs::create_dir_all(dir).map_err(|e| WriteReferenceDatasetError::CreateOutputDir {
+        fs::create_dir_all(dir).map_err(|e| WriteReferenceDatasetErrorInner::CreateOutputDir {
             path: dir.to_owned(),
             reason: e.to_string(),
         })?;
@@ -92,7 +100,7 @@ pub fn write_reference_dataset(
 
     let annotations_path = dir.join("annotations.csv");
     if annotations_path.exists() {
-        return Err(WriteReferenceDatasetError::AnnotationsCsvExists {
+        return Err(WriteReferenceDatasetErrorInner::AnnotationsCsvExists {
             path: annotations_path,
         }
         .into());
@@ -123,21 +131,21 @@ fn write_annotations_csv(path: &Utf8Path, barcodes: &Barcodes, annotations: &Cel
 fn write_matrix(
     path: &Utf8Path,
     dataset: &PseudoAnndata,
-) -> Result<(), WriteReferenceDatasetErrorWrapper> {
+) -> Result<(), WriteReferenceDatasetError> {
     let file =
-        File::create_excl(path).map_err(|e| WriteReferenceDatasetError::CreateMatrixFile {
+        File::create_excl(path).map_err(|e| WriteReferenceDatasetErrorInner::CreateMatrixFile {
             path: path.to_path_buf(),
             reason: e.to_string(),
         })?;
 
     let matrix_group = create_h5_group(&file, "matrix").map_err(|error| {
-        WriteReferenceDatasetError::CreateH5Group {
+        WriteReferenceDatasetErrorInner::CreateH5Group {
             path: path.to_path_buf(),
             error,
         }
     })?;
 
-    let write_err = |error| WriteReferenceDatasetError::WriteH5Dataset {
+    let write_err = |error| WriteReferenceDatasetErrorInner::WriteH5Dataset {
         path: path.to_path_buf(),
         error,
     };
@@ -187,13 +195,14 @@ mod tests {
         Barcode,
         columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
         error::{
-            ReadReferenceDatasetError, ReadReferenceDatasetErrorInner, WriteReferenceDatasetError,
+            ReadReferenceDatasetError, ReadReferenceDatasetErrorInner,
+            ReadReferenceDatasetErrorSet, WriteReferenceDatasetErrorInner,
         },
         h5_util::read_test_1d_dataset,
         pseudo_anndata::PseudoAnndata,
         read_reference_dataset,
         transcriptome::{Transcriptome, TranscriptomeName},
-        var::{EnsemblId, GeneName},
+        var::{EnsemblId, GeneName, VarError},
         write_reference_dataset,
     };
 
@@ -233,7 +242,7 @@ mod tests {
     fn read_collects_errors_from_every_field() {
         let path = "test-data/csr_adata.h5ad";
 
-        let errors = read_reference_dataset(
+        let ReadReferenceDatasetErrorSet::Matrix { path, errors } = read_reference_dataset(
             Utf8Path::new(path),
             &CellBarcodeCol("foo".to_owned()),
             &CellAnnotationCol("bar".to_owned()),
@@ -241,23 +250,25 @@ mod tests {
             &GeneNameCol("qux".to_owned()),
             Transcriptome::new(TranscriptomeName::Grch382020A, false),
         )
-        .unwrap_err();
+        .unwrap_err() else {
+            unreachable!();
+        };
 
-        assert_eq!(errors.path.as_str(), path);
+        assert_eq!(path.as_str(), path);
 
         std::assert_matches!(
-            errors.errors.as_slice(),
+            errors.as_slice(),
             [
                 ReadReferenceDatasetError {
-                    error: ReadReferenceDatasetErrorInner::Obs { .. },
+                    error: ReadReferenceDatasetErrorInner::CellBarcodes(..),
                     ..
                 },
                 ReadReferenceDatasetError {
-                    error: ReadReferenceDatasetErrorInner::Obs { .. },
+                    error: ReadReferenceDatasetErrorInner::CellAnnotations(..),
                     ..
                 },
                 ReadReferenceDatasetError {
-                    error: ReadReferenceDatasetErrorInner::Var { .. },
+                    error: ReadReferenceDatasetErrorInner::Var(VarError::InvalidH5Fields { .. }),
                     ..
                 },
             ],
@@ -372,7 +383,7 @@ mod tests {
             write_reference_dataset(&existing_annotations_path, &dataset)
                 .unwrap_err()
                 .error,
-            WriteReferenceDatasetError::AnnotationsCsvExists { .. }
+            WriteReferenceDatasetErrorInner::AnnotationsCsvExists { .. }
         );
 
         let existing_matrix = utf8_path_from_temp_dir(&dir).join("existing-matrix");
@@ -383,7 +394,7 @@ mod tests {
             write_reference_dataset(&existing_matrix, &dataset)
                 .unwrap_err()
                 .error,
-            WriteReferenceDatasetError::CreateMatrixFile { .. }
+            WriteReferenceDatasetErrorInner::CreateMatrixFile { .. }
         );
     }
 

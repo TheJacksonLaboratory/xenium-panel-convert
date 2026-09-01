@@ -1,10 +1,9 @@
 use hdf5_metno::File;
-use serde::Serialize;
 
 use crate::reference_dataset::{
     Barcodes, CellAnnotations,
     columns::{CellAnnotationCol, CellBarcodeCol},
-    h5_util::{self, ReadH5FieldError, read_1d_string_dataset, to_ascii},
+    h5_util::{ReadH5FieldError, read_1d_string_dataset, to_ascii},
 };
 
 // Read these into String because we will write them to a CSV, so we need serde
@@ -12,7 +11,7 @@ use crate::reference_dataset::{
 pub(super) fn read_cell_annotations_from_h5ad(
     file: &File,
     annotation_col: &CellAnnotationCol,
-) -> Result<CellAnnotations, ObsError> {
+) -> Result<CellAnnotations, ReadH5FieldError> {
     let strings = read_1d_string_dataset(file, &format!("obs/{annotation_col}"))?;
 
     Ok(strings.mapv_into_any(|s| s.to_string()))
@@ -25,23 +24,10 @@ pub(super) fn read_cell_annotations_from_h5ad(
 pub(super) fn read_cell_barcodes_from_h5ad(
     file: &File,
     barcode_col: &CellBarcodeCol,
-) -> Result<Barcodes, ObsError> {
-    let barcodes = h5_util::read_1d_string_dataset(file, &format!("obs/{barcode_col}"))?;
+) -> Result<Barcodes, ReadH5FieldError> {
+    let barcodes = read_1d_string_dataset(file, &format!("obs/{barcode_col}"))?;
 
     Ok(barcodes.mapv_into_any(|b| to_ascii(&b)))
-}
-
-#[derive(Debug, Clone, Serialize, thiserror::Error)]
-#[serde(rename_all = "snake_case", tag = "type")]
-pub enum ObsError {
-    #[error(transparent)]
-    MalformedObs { error: ReadH5FieldError },
-}
-
-impl From<ReadH5FieldError> for ObsError {
-    fn from(error: ReadH5FieldError) -> Self {
-        Self::MalformedObs { error }
-    }
 }
 
 #[cfg(test)]
@@ -52,7 +38,7 @@ mod tests {
     use crate::reference_dataset::{
         columns::{CellAnnotationCol, CellBarcodeCol},
         h5_util::{FieldType, ReadH5FieldError},
-        obs::{ObsError, read_cell_annotations_from_h5ad, read_cell_barcodes_from_h5ad},
+        obs::{read_cell_annotations_from_h5ad, read_cell_barcodes_from_h5ad},
     };
 
     fn generated_h5ad() -> File {
@@ -101,11 +87,9 @@ mod tests {
 
         std::assert_matches!(
             err,
-            ObsError::MalformedObs {
-                error: ReadH5FieldError::DataTypeOrMissing {
-                    field_type: FieldType::Container,
-                    ..
-                }
+            ReadH5FieldError::DataTypeOrMissing {
+                field_type: FieldType::Container,
+                ..
             }
         );
     }

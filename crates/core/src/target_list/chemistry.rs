@@ -80,7 +80,7 @@ impl UnvalidatedEnsemblId {
     }
 
     #[cfg(test)]
-    pub(super) fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
 }
@@ -142,7 +142,7 @@ fn ensembl_id_to_gene(
 }
 
 #[cfg(test)]
-pub(super) mod tests {
+pub(crate) mod tests {
     use crate::target_list::chemistry::{
         GeneName, UnvalidatedEnsemblId, xenium_prime_human::XENIUM_PRIME_HUMAN_GENES,
         xenium_prime_mouse::XENIUM_PRIME_MOUSE_GENES, xenium_v1_human::XENIUM_V1_HUMAN_GENES,

@@ -70,35 +70,37 @@ pub(super) fn read_1d_string_dataset(
     }
 }
 
-pub(super) fn read_1d_nullable_string_dataset(
-    file: &File,
-    path: &str,
-) -> Result<Array1<Option<VarLenUnicode>>, ReadH5FieldError> {
-    todo!()
-}
-
 fn read_categorical_array(
     file: &File,
     path: &str,
 ) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
+    let mut null_indices = Vec::new();
+
     let codes = read_1d_dataset::<i32>(file, &format!("{path}/codes"))?;
     let categories = read_1d_dataset::<VarLenUnicode>(file, &format!("{path}/categories"))?;
 
-    codes
+    let array = codes
         .iter()
         .enumerate()
-        .map(|(i, code)| {
+        .filter_map(|(i, code)| {
             if *code == -1 {
-                return Err(ReadH5FieldError::NullValue {
-                    index: i,
-                    object_path: path.to_owned(),
-                });
+                null_indices.push(i);
+                None
+            } else {
+                #[allow(clippy::cast_sign_loss)]
+                Some(categories[*code as usize].clone())
             }
-
-            #[allow(clippy::cast_sign_loss)]
-            Ok(categories[*code as usize].clone())
         })
-        .collect()
+        .collect();
+
+    if null_indices.is_empty() {
+        Ok(array)
+    } else {
+        Err(ReadH5FieldError::NullValues {
+            indices: null_indices,
+            object_path: path.to_owned(),
+        })
+    }
 }
 
 fn read_string_array(file: &File, path: &str) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
@@ -110,18 +112,20 @@ fn read_nullable_string_array(
     path: &str,
 ) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
     let is_null_array = read_1d_dataset::<bool>(file, &format!("{path}/mask"))?;
-    if let Some((index, _)) = is_null_array
+    let null_indices: Vec<_> = is_null_array
         .iter()
         .enumerate()
-        .find(|(_, is_null)| **is_null)
-    {
-        return Err(ReadH5FieldError::NullValue {
-            index,
-            object_path: path.to_owned(),
-        });
-    }
+        .filter_map(|(i, is_null)| is_null.then_some(i))
+        .collect();
 
-    read_string_array(file, &format!("{path}/values"))
+    if null_indices.is_empty() {
+        read_string_array(file, &format!("{path}/values"))
+    } else {
+        Err(ReadH5FieldError::NullValues {
+            indices: null_indices,
+            object_path: path.to_owned(),
+        })
+    }
 }
 
 fn read_1d_dataset<T: H5Type>(file: &File, path: &str) -> Result<Array1<T>, ReadH5FieldError> {
@@ -194,10 +198,12 @@ pub enum ReadH5FieldError {
         object_path: String,
     },
     #[error(
-        "null-value found at index {index} of {object_path} - ensure every element of the array \
-         has a value"
+        "null-values found at each of the provided indices of {object_path} - ensure every element of the array has a value"
     )]
-    NullValue { index: usize, object_path: String },
+    NullValues {
+        indices: Vec<usize>,
+        object_path: String,
+    },
     #[error(
         "unknown encoding type {found} at {object_path}, expected one of {expected:?} - was \
          scanpy used correctly?"
@@ -247,10 +253,14 @@ mod tests {
 
     #[test]
     fn unannotated_cells_are_rejected() {
-        std::assert_matches!(
-            read_obs_column("annotation_missing").unwrap_err(),
-            ReadH5FieldError::NullValue { index: 9, .. },
-            "the missing value in obs/annotation_missing was not reported"
-        );
+        let ReadH5FieldError::NullValues {
+            indices,
+            object_path: _,
+        } = read_obs_column("annotation_missing").unwrap_err()
+        else {
+            panic!("expecting null-values error");
+        };
+
+        assert_eq!(indices, [9]);
     }
 }

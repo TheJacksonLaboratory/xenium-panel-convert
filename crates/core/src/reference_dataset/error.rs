@@ -4,8 +4,7 @@ use serde::Serialize;
 use crate::{
     common::ErrorVecExt,
     reference_dataset::{
-        h5_util::{CreateH5GroupError, WriteH5DatasetError},
-        obs::ObsError,
+        h5_util::{CreateH5GroupError, ReadH5FieldError, WriteH5DatasetError},
         pseudo_anndata::ShapeMismatchError,
         umi_counts::UmiCountsError,
         var::VarError,
@@ -13,42 +12,43 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Serialize, thiserror::Error)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(untagged)]
+pub enum ReadReferenceDatasetErrorSet {
+    #[error("invalid H5 file at {path} ({reason}) - {hint}")]
+    InvalidH5File {
+        path: Utf8PathBuf,
+        reason: String,
+        hint: &'static str,
+    },
+    #[error("invalid matrix")]
+    Matrix {
+        path: Utf8PathBuf,
+        errors: Vec<ReadReferenceDatasetError>,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, thiserror::Error)]
+#[error("{error}")]
+pub struct ReadReferenceDatasetError {
+    #[serde(flatten)]
+    pub error: ReadReferenceDatasetErrorInner,
+    #[serde(skip_serializing_if = "str::is_empty")]
+    pub hint: String,
+}
+
+#[derive(Clone, Debug, Serialize, thiserror::Error)]
+#[serde(tag = "component", rename_all = "snake_case")]
 pub enum ReadReferenceDatasetErrorInner {
-    #[error("ensure the H5AD is properly formatted")]
-    InvalidH5File { reason: String },
     #[error(transparent)]
-    UmiCounts { error: UmiCountsError },
+    UmiCounts(#[from] UmiCountsError),
     #[error(transparent)]
-    Obs { error: ObsError },
+    CellBarcodes(ReadH5FieldError),
     #[error(transparent)]
-    Var { error: VarError },
+    CellAnnotations(ReadH5FieldError),
     #[error(transparent)]
-    Shape { error: ShapeMismatchError },
-}
-
-impl From<UmiCountsError> for ReadReferenceDatasetErrorInner {
-    fn from(error: UmiCountsError) -> Self {
-        Self::UmiCounts { error }
-    }
-}
-
-impl From<ObsError> for ReadReferenceDatasetErrorInner {
-    fn from(error: ObsError) -> Self {
-        Self::Obs { error }
-    }
-}
-
-impl From<VarError> for ReadReferenceDatasetErrorInner {
-    fn from(error: VarError) -> Self {
-        Self::Var { error }
-    }
-}
-
-impl From<ShapeMismatchError> for ReadReferenceDatasetErrorInner {
-    fn from(error: ShapeMismatchError) -> Self {
-        Self::Shape { error }
-    }
+    Var(#[from] VarError),
+    #[error(transparent)]
+    Shape(#[from] ShapeMismatchError),
 }
 
 impl<E> ErrorVecExt<E> for Vec<ReadReferenceDatasetErrorInner>
@@ -64,7 +64,7 @@ where
 
 #[derive(Clone, Debug, Serialize, thiserror::Error)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum WriteReferenceDatasetError {
+pub enum WriteReferenceDatasetErrorInner {
     #[error("failed to create output directory - {reason}")]
     CreateOutputDir { path: Utf8PathBuf, reason: String },
     #[error("failed to create matrix.h5 - {reason}")]
@@ -83,13 +83,6 @@ pub enum WriteReferenceDatasetError {
     AnnotationsCsvExists { path: Utf8PathBuf },
 }
 
-#[derive(Clone, Debug, Serialize, thiserror::Error)]
-#[error("{error}")]
-pub struct ReadReferenceDatasetError {
-    pub error: ReadReferenceDatasetErrorInner,
-    pub hint: String,
-}
-
 impl From<ReadReferenceDatasetErrorInner> for ReadReferenceDatasetError {
     fn from(error: ReadReferenceDatasetErrorInner) -> Self {
         Self {
@@ -101,22 +94,16 @@ impl From<ReadReferenceDatasetErrorInner> for ReadReferenceDatasetError {
 
 #[derive(Clone, Debug, Serialize, thiserror::Error)]
 #[error("{error}")]
-pub struct WriteReferenceDatasetErrorWrapper {
-    pub error: WriteReferenceDatasetError,
+pub struct WriteReferenceDatasetError {
+    pub error: WriteReferenceDatasetErrorInner,
     pub hint: String,
 }
 
-impl From<WriteReferenceDatasetError> for WriteReferenceDatasetErrorWrapper {
-    fn from(error: WriteReferenceDatasetError) -> Self {
+impl From<WriteReferenceDatasetErrorInner> for WriteReferenceDatasetError {
+    fn from(error: WriteReferenceDatasetErrorInner) -> Self {
         Self {
             hint: error.to_string(),
             error,
         }
     }
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct ReadReferenceDatasetErrorSet {
-    pub path: Utf8PathBuf,
-    pub errors: Vec<ReadReferenceDatasetError>,
 }

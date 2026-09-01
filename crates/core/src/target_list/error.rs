@@ -10,7 +10,9 @@ use crate::{
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct TargetErrorSet {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub line_number: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub submitted_target: Option<UnvalidatedTarget>,
     pub errors: Vec<TargetError>,
 }
@@ -18,6 +20,7 @@ pub struct TargetErrorSet {
 #[derive(Clone, Debug, Serialize, PartialEq, thiserror::Error)]
 #[error("{error}")]
 pub struct TargetError {
+    #[serde(flatten)]
     pub error: TargetErrorInner,
     pub hint: String,
 }
@@ -39,21 +42,17 @@ pub enum TargetErrorInner {
     #[error("add the field {fieldname} to the CSV")]
     MissingField { fieldname: &'static str },
     #[error("change {value} to one of {}", allowed.join(","))]
-    InvalidPriority {
+    InvalidValue {
+        field: &'static str,
         value: String,
         allowed: &'static [&'static str],
     },
-    #[error("remove the Ensembl ID versino and uppercase it")]
+    #[error("remove the Ensembl ID version and uppercase it")]
     VersionedOrLowercaseEnsemblId { correct_gene: Option<ValidGene> },
     #[error("add an Ensembl ID")]
     NoEnsemblId,
     #[error("add a gene name (based on the Ensembl ID, it is probably {probable_gene_name})")]
     NoGeneName { probable_gene_name: GeneName },
-    #[error("rename the header {original_fieldname} to {correct_fieldname}")]
-    RenamedField {
-        original_fieldname: String,
-        correct_fieldname: String,
-    },
     #[error(
         "the gene name corresponding to the Ensembl ID {ensembl_id} is {correct_gene_name} - \
          change either the Ensembl ID or the gene name so they match"
@@ -72,9 +71,7 @@ pub enum TargetErrorInner {
 
 impl From<csv::Error> for TargetErrorInner {
     fn from(err: csv::Error) -> Self {
-        Self::MalformedCsv {
-            reason: err.to_string(),
-        }
+        Self::from(&err)
     }
 }
 

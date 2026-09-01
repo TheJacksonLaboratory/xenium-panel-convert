@@ -171,11 +171,11 @@ impl ValidTarget {
             parse_priority_field(priority.as_deref()).map_or_else(|err| errors.push_err(err), Some);
 
         let is_custom =
-            parse_is_custom(custom.as_deref()).map_or_else(|err| errors.push_err(err), Some);
+            parse_custom_field(custom.as_deref()).map_or_else(|err| errors.push_err(err), Some);
 
         let valid_gene = match is_custom {
             Some(true) => None,
-            Some(false) => ValidGene::from_unvalidated(&gene, ensembl_id_to_gene)
+            Some(false) => ValidGene::from_unvalidated(gene, ensembl_id_to_gene)
                 .map_or_else(|err| errors.push_err(err), Some),
             None => None,
         };
@@ -208,7 +208,7 @@ impl ValidTarget {
     }
 }
 
-fn parse_is_custom(s: Option<&str>) -> Result<bool, TargetErrorInner> {
+fn parse_custom_field(s: Option<&str>) -> Result<bool, TargetErrorInner> {
     let Some(s) = s else {
         return Ok(false);
     };
@@ -218,8 +218,10 @@ fn parse_is_custom(s: Option<&str>) -> Result<bool, TargetErrorInner> {
     } else if s.eq_ignore_ascii_case("false") {
         Ok(false)
     } else {
-        Err(TargetErrorInner::MalformedCsv {
-            reason: "field 'custom' must be 'true', 'false', or empty ('')".to_owned(),
+        Err(TargetErrorInner::InvalidValue {
+            field: "custom",
+            value: s.to_owned(),
+            allowed: &["true", "false"],
         })
     }
 }
@@ -231,7 +233,8 @@ fn parse_priority_field(s: Option<&str>) -> Result<Priority, TargetErrorInner> {
         });
     };
 
-    Priority::from_str(s).map_err(|_| TargetErrorInner::InvalidPriority {
+    Priority::from_str(s).map_err(|_| TargetErrorInner::InvalidValue {
+        field: "priority",
         value: s.to_owned(),
         allowed: Priority::VARIANTS,
     })
@@ -288,7 +291,8 @@ mod tests {
             errors,
             [
                 TargetErrorInner::MissingField { fieldname: "group" },
-                TargetErrorInner::InvalidPriority {
+                TargetErrorInner::InvalidValue {
+                    field: "priority",
                     value: "urgent".to_owned(),
                     allowed: Priority::VARIANTS,
                 },

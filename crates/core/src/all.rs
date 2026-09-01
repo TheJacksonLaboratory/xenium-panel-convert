@@ -69,8 +69,13 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
     reference_dataset_transcriptome: TranscriptomeName,
     reference_dataset_is_flex: bool,
 ) -> Result<(), TargetListReferenceDatasetCompatibilityWarningInner> {
-    let transcriptome =
-        Transcriptome::new(reference_dataset_transcriptome, reference_dataset_is_flex);
+    // If we have a PseudoAnndata, we know that the either the transcriptome is 'other' or the features match the transcriptome exactly, so it's okay to return Ok with no transcriptome
+    let Some(transcriptome) =
+        Transcriptome::new(reference_dataset_transcriptome, reference_dataset_is_flex)
+    else {
+        return Ok(());
+    };
+
     let gene_map = transcriptome
         .gene_map(reference_dataset.features().len())
         .expect("if we have a PseudoAnndata, we know its features are exactly the transcriptome");
