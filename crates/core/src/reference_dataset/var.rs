@@ -8,10 +8,13 @@ use hdf5_metno::{
 use ndarray::Array1;
 use serde::Serialize;
 
-use crate::reference_dataset::{
-    columns::{EnsemblIdCol, GeneNameCol},
-    h5_util::{ReadH5FieldError, read_1d_string_dataset, to_ascii},
-    transcriptome::Transcriptome,
+use crate::{
+    error::collect_error,
+    reference_dataset::{
+        columns::{EnsemblIdCol, GeneNameCol},
+        h5_util::{ReadH5FieldError, read_1d_string_dataset, to_ascii},
+        transcriptome::Transcriptome,
+    },
 };
 
 pub(super) fn read_features_from_h5ad(
@@ -20,22 +23,16 @@ pub(super) fn read_features_from_h5ad(
     gene_name_col: &GeneNameCol,
     transcriptome: Option<Transcriptome>,
 ) -> Result<Features, VarError> {
-    let features = [
+    let mut errors = Vec::new();
+
+    let [Some(ensembl_ids), Some(gene_names), Some(feature_types)] = [
         ensembl_id_col.as_str(),
         gene_name_col.as_str(),
         "feature_types",
     ]
-    .map(|s| format!("var/{s}"))
-    .map(|path| read_1d_string_dataset(file, &path));
-
-    let [Ok(ensembl_ids), Ok(gene_names), Ok(feature_types)] = features else {
-        let [ensembl_ids_error, gene_names_error, feature_types_error] = features.map(Result::err);
-
-        return Err(VarError::InvalidH5Fields {
-            ensembl_ids_error,
-            gene_names_error,
-            feature_types_error,
-        });
+    .map(|column| read_1d_string_dataset(file, &format!("var/{column}")))
+    .map(|field| collect_error(field, &mut errors)) else {
+        return Err(VarError::InvalidH5Fields { errors });
     };
 
     check_feature_array_lens(&ensembl_ids, &gene_names, &feature_types)?;
@@ -184,14 +181,7 @@ pub enum VarError {
         "one or more fields in .var were improperly formatted or nonexistent - did you pass in \
          the right column names?"
     )]
-    InvalidH5Fields {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        ensembl_ids_error: Option<ReadH5FieldError>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        gene_names_error: Option<ReadH5FieldError>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        feature_types_error: Option<ReadH5FieldError>,
-    },
+    InvalidH5Fields { errors: Vec<ReadH5FieldError> },
     #[error("some genes were filtered out of the dataset (expected: {}, found: {n_found_genes})",
         n_expected_genes2.map_or_else(|| n_expected_genes.to_string(), |n2| format!("{n_expected_genes} or {n2}")))]
     FilteredGenes {
@@ -280,14 +270,18 @@ mod tests {
 
     #[test]
     fn missing_var_columns_are_collected() {
-        std::assert_matches!(
-            read_generated_features("nonexistent", "also_nonexistent").unwrap_err(),
-            VarError::InvalidH5Fields {
-                ensembl_ids_error: Some(_),
-                gene_names_error: Some(_),
-                feature_types_error: None
-            },
-            "some H5 field-reading errors were not collected"
+        let VarError::InvalidH5Fields { errors } =
+            read_generated_features("nonexistent", "also_nonexistent").unwrap_err()
+        else {
+            unreachable!();
+        };
+
+        // Only the two nonexistent columns should be reported - 'feature_types'
+        // exists in the test-data
+        assert_eq!(
+            errors.len(),
+            2,
+            "every unreadable column should be reported, not just the first"
         );
     }
 
