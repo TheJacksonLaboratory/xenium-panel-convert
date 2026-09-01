@@ -87,7 +87,6 @@ fn validate_var_matches_transcriptome(
     expected_genes: &phf::Map<&str, &str>,
 ) -> Result<(), VarError> {
     let mut errors = Vec::new();
-    let mut hints = HashSet::new();
     let mut seen = HashSet::with_capacity(ensembl_ids.len());
 
     for (id, name) in ensembl_ids.iter().zip(gene_names) {
@@ -97,8 +96,6 @@ fn validate_var_matches_transcriptome(
                 gene_name: name.to_string(),
             });
 
-            hints.insert("some genes were found more than once");
-
             continue;
         }
 
@@ -106,7 +103,6 @@ fn validate_var_matches_transcriptome(
             errors.push(VarRowError::UnrecognizedEnsemblId {
                 ensembl_id: id.to_string(),
             });
-            hints.insert("some Ensembl IDs were not found in the reference transcriptome");
 
             continue;
         };
@@ -117,22 +113,26 @@ fn validate_var_matches_transcriptome(
                 expected_gene_name,
                 found_gene_name: name.to_string(),
             });
-
-            hints.insert(
-                "some gene names differ between the dataset and reference transcriptome - if you \
-                 used AnnData.var_names_make_unique, try regenerating the dataset without it",
-            );
         }
     }
 
     if errors.is_empty() {
         Ok(())
     } else {
-        Err(VarError::Genes {
-            errors,
-            hints: hints.into_iter().collect(),
-        })
+        Err(VarError::Genes { errors })
     }
+}
+
+fn hints(errors: &[VarRowError]) -> Vec<&'static str> {
+    let mut hints = Vec::new();
+
+    for hint in errors.iter().map(VarRowError::hint) {
+        if !hints.contains(&hint) {
+            hints.push(hint);
+        }
+    }
+
+    hints
 }
 
 // Human Ensembl IDs are 15 characters while mouse Ensembl IDs are 18
@@ -200,11 +200,12 @@ pub enum VarError {
         gene_names_len: usize,
         feature_types_len: usize,
     },
-    #[error("")]
-    Genes {
-        errors: Vec<VarRowError>,
-        hints: Vec<&'static str>,
-    },
+    #[error(
+        "{} genes in .var do not match the reference transcriptome - {}",
+        errors.len(),
+        hints(errors).join("; ")
+    )]
+    Genes { errors: Vec<VarRowError> },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -223,6 +224,20 @@ pub enum VarRowError {
     UnrecognizedEnsemblId {
         ensembl_id: String,
     },
+}
+
+impl VarRowError {
+    fn hint(&self) -> &'static str {
+        match self {
+            Self::DuplicateGene { .. } => "remove the duplicated genes from the dataset",
+            Self::EnsemblIdGeneNameMismatch { .. } => {
+                "if you used AnnData.var_names_make_unique, regenerate the dataset without it"
+            }
+            Self::UnrecognizedEnsemblId { .. } => {
+                "ensure the dataset was aligned against the transcriptome you specified"
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -303,7 +318,7 @@ mod tests {
 
         let transcriptome = Transcriptome::new(TranscriptomeName::Grch382024A, false).unwrap();
 
-        let VarError::Genes { errors, hints: _ } = validate_var_matches_transcriptome(
+        let VarError::Genes { errors } = validate_var_matches_transcriptome(
             &arr1(&ensembl_ids),
             &arr1(&gene_names),
             transcriptome.gene_map(transcriptome.n_genes().0).unwrap(),
