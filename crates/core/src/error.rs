@@ -23,3 +23,17 @@ impl<E: Display> Hinted<E> {
         }
     }
 }
+
+pub(crate) fn collect_error<T, E1, E2>(result: Result<T, E1>, errors: &mut Vec<E2>) -> Option<T>
+where
+    E1: Into<E2>,
+{
+    match result {
+        Ok(value) => Some(value),
+        Err(error) => {
+            errors.push(error.into());
+
+            None
+        }
+    }
+}

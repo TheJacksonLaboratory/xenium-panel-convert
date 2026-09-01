@@ -1,7 +1,6 @@
 use serde::Serialize;
 
 use crate::{
-    common::ErrorVecExt,
     error::Hinted,
     target_list::{
         chemistry::{EnsemblId, GeneName},
@@ -64,13 +63,5 @@ impl<'a> From<&'a csv::Error> for TargetError {
         Self::MalformedCsv {
             reason: err.to_string(),
         }
-    }
-}
-
-impl ErrorVecExt<TargetError> for Vec<TargetError> {
-    fn push_err<T>(&mut self, err: TargetError) -> Option<T> {
-        self.push(err);
-
-        None
     }
 }

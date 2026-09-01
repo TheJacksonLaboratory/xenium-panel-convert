@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use strum::VariantNames;
 
 use crate::{
-    common::ErrorVecExt,
+    error::collect_error,
     target_list::{
         TargetError,
         chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId, UnvalidatedGeneName},
@@ -167,16 +167,16 @@ impl ValidTarget {
             errors.push(TargetError::MissingField { fieldname: "group" });
         }
 
-        let priority =
-            parse_priority_field(priority.as_deref()).map_or_else(|err| errors.push_err(err), Some);
+        let priority = collect_error(parse_priority_field(priority.as_deref()), &mut errors);
 
-        let is_custom =
-            parse_custom_field(custom.as_deref()).map_or_else(|err| errors.push_err(err), Some);
+        let is_custom = collect_error(parse_custom_field(custom.as_deref()), &mut errors);
 
         let valid_gene = match is_custom {
             Some(true) | None => None,
-            Some(false) => ValidGene::from_unvalidated(gene, ensembl_id_to_gene)
-                .map_or_else(|err| errors.push_err(err), Some),
+            Some(false) => collect_error(
+                ValidGene::from_unvalidated(gene, ensembl_id_to_gene),
+                &mut errors,
+            ),
         };
 
         match (valid_gene, group, priority, is_custom) {

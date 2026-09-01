@@ -6,8 +6,7 @@ use ndarray::Array1;
 use serde::Serialize;
 
 use crate::{
-    common::ErrorVecExt,
-    error::Hinted,
+    error::{Hinted, collect_error},
     reference_dataset::{
         columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
         error::{
@@ -48,18 +47,24 @@ pub fn read_reference_dataset(
             hint: "ensure the H5AD file is properly formatted",
         })?;
 
-    let counts = read_umi_counts_from_h5ad(&file).map_or_else(|err| errors.push_err(err), Some);
+    let counts = collect_error(read_umi_counts_from_h5ad(&file), &mut errors);
 
-    let barcodes = read_cell_barcodes_from_h5ad(&file, cell_barcode_col)
-        .map_err(ReadReferenceDatasetError::CellBarcodes)
-        .map_or_else(|err| errors.push_err(err), Some);
+    let barcodes = collect_error(
+        read_cell_barcodes_from_h5ad(&file, cell_barcode_col)
+            .map_err(ReadReferenceDatasetError::CellBarcodes),
+        &mut errors,
+    );
 
-    let cell_annotations = read_cell_annotations_from_h5ad(&file, cell_annotation_col)
-        .map_err(ReadReferenceDatasetError::CellAnnotations)
-        .map_or_else(|err| errors.push_err(err), Some);
+    let cell_annotations = collect_error(
+        read_cell_annotations_from_h5ad(&file, cell_annotation_col)
+            .map_err(ReadReferenceDatasetError::CellAnnotations),
+        &mut errors,
+    );
 
-    let features = read_features_from_h5ad(&file, ensembl_id_col, gene_name_col, transcriptome)
-        .map_or_else(|err| errors.push_err(err), Some);
+    let features = collect_error(
+        read_features_from_h5ad(&file, ensembl_id_col, gene_name_col, transcriptome),
+        &mut errors,
+    );
 
     let collect_matrix_errors =
         |errs: Vec<ReadReferenceDatasetError>| ReadReferenceDatasetErrorSet::Matrix {
@@ -279,7 +284,7 @@ mod tests {
 
         let dir = temp_dir();
         let output_dir = utf8_path_from_temp_dir(&dir);
-        write_reference_dataset(&output_dir, &scanpy_dataset).unwrap();
+        write_reference_dataset(output_dir, &scanpy_dataset).unwrap();
 
         let written = File::open(output_dir.join("matrix.h5")).unwrap();
 

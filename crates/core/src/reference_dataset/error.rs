@@ -2,7 +2,6 @@ use camino::Utf8PathBuf;
 use serde::Serialize;
 
 use crate::{
-    common::ErrorVecExt,
     error::Hinted,
     reference_dataset::{
         h5_util::{CreateH5GroupError, ReadH5FieldError, WriteH5DatasetError},
@@ -41,17 +40,6 @@ pub enum ReadReferenceDatasetError {
     Var(#[from] VarError),
     #[error(transparent)]
     Shape(#[from] ShapeMismatchError),
-}
-
-impl<E> ErrorVecExt<E> for Vec<ReadReferenceDatasetError>
-where
-    E: Into<ReadReferenceDatasetError>,
-{
-    fn push_err<T>(&mut self, err: E) -> Option<T> {
-        self.push(err.into());
-
-        None
-    }
 }
 
 #[derive(Clone, Debug, Serialize, thiserror::Error)]

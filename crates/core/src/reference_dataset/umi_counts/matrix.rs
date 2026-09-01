@@ -168,6 +168,7 @@ mod tests {
     #[test]
     fn total_counts_are_correct() {
         let mtx = csr();
+        #[expect(clippy::cast_possible_truncation)]
         let data: Vec<_> = mtx.data().iter().map(|f| *f as i32).collect();
 
         assert_eq!(
