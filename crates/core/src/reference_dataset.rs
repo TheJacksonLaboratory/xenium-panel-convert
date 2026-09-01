@@ -100,27 +100,38 @@ pub fn write_reference_dataset(
             path: annotations_path,
         });
     }
-    write_annotations_csv(&annotations_path, ds.barcodes(), ds.cell_annotations());
+    write_annotations_csv(&annotations_path, ds.barcodes(), ds.cell_annotations())?;
 
     write_matrix(&dir.join("matrix.h5"), ds)
 }
 
-fn write_annotations_csv(path: &Utf8Path, barcodes: &Barcodes, annotations: &CellAnnotations) {
+fn write_annotations_csv(
+    path: &Utf8Path,
+    barcodes: &Barcodes,
+    annotations: &CellAnnotations,
+) -> Result<(), WriteReferenceDatasetError> {
     #[derive(Debug, Serialize)]
     struct CellAnnotation<'a> {
         barcode: &'a str,
         annotation: &'a str,
     }
 
-    let mut writer = csv::Writer::from_path(path).unwrap();
+    let map_err = |err: csv::Error| WriteReferenceDatasetError::WriteCsv {
+        path: path.to_owned(),
+        reason: err.to_string(),
+    };
+
+    let mut writer = csv::Writer::from_path(path).map_err(map_err)?;
     for (barcode, annotation) in barcodes.iter().zip(annotations) {
         writer
             .serialize(CellAnnotation {
                 barcode,
                 annotation,
             })
-            .unwrap();
+            .map_err(map_err)?;
     }
+
+    Ok(())
 }
 
 fn write_matrix(
@@ -147,7 +158,7 @@ fn write_matrix(
     write_dataset_to_h5_group(&matrix_group, "indices", counts.indices()).map_err(write_err)?;
     write_dataset_to_h5_group(&matrix_group, "indptr", counts.indptr().raw_storage())
         .map_err(write_err)?;
-    write_dataset_to_h5_group(&matrix_group, "shape", &counts.shape()).map_err(write_err)?;
+    write_dataset_to_h5_group(&matrix_group, "shape", &counts.shape_as_i32()).map_err(write_err)?;
 
     let features = dataset.features();
     write_dataset_to_h5_group(
@@ -304,7 +315,7 @@ mod tests {
                 .unwrap()
                 .as_slice()
                 .unwrap(),
-            scanpy_counts.shape()
+            scanpy_counts.shape_as_i32()
         );
 
         assert_eq!(
@@ -419,7 +430,7 @@ mod tests {
                 .unwrap()
                 .as_slice()
                 .unwrap(),
-            read_counts.shape()
+            read_counts.shape_as_i32()
         );
 
         let original_barcodes =

@@ -37,15 +37,17 @@ pub(super) fn read_features_from_h5ad(
 
     check_feature_array_lens(&ensembl_ids, &gene_names, &feature_types)?;
 
-    let Some(transcriptome) = transcriptome else {
-        return Ok(Features {
-            ensembl_ids: ensembl_ids.mapv_into_any(|s| to_ascii(&s)),
-            gene_names: gene_names.mapv_into_any(|s| to_ascii(&s)),
-            feature_types: feature_types.mapv_into_any(|s| to_ascii(&s)),
-        });
+    let features = Features {
+        ensembl_ids: ensembl_ids.mapv(|s| to_ascii(&s)),
+        gene_names: gene_names.mapv(|s| to_ascii(&s)),
+        feature_types: feature_types.mapv(|s| to_ascii(&s)),
     };
 
-    let n_genes_in_dataset = ensembl_ids.len();
+    let Some(transcriptome) = transcriptome else {
+        return Ok(features);
+    };
+
+    let n_genes_in_dataset = features.ensembl_ids.len();
     let expected_genes = transcriptome.gene_map(n_genes_in_dataset).ok_or_else(|| {
         let (n_expected_genes, n_expected_genes2) = transcriptome.n_genes();
 
@@ -58,11 +60,7 @@ pub(super) fn read_features_from_h5ad(
 
     validate_var_matches_transcriptome(&ensembl_ids, &gene_names, expected_genes)?;
 
-    Ok(Features {
-        ensembl_ids: ensembl_ids.mapv_into_any(|s| to_ascii(&s)),
-        gene_names: gene_names.mapv_into_any(|s| to_ascii(&s)),
-        feature_types: feature_types.mapv_into_any(|s| to_ascii(&s)),
-    })
+    Ok(features)
 }
 
 fn check_feature_array_lens(

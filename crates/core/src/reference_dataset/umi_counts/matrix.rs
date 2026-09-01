@@ -67,10 +67,14 @@ impl RawCscUmiCounts {
         self.0.as_matrix().indptr()
     }
 
-    pub(crate) fn shape(&self) -> [i32; 2] {
-        let (nrows, ncols) = self.0.as_matrix().shape();
+    pub(crate) fn shape(&self) -> (usize, usize) {
+        self.0.as_matrix().shape()
+    }
 
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+    pub(crate) fn shape_as_i32(&self) -> [i32; 2] {
+        let (nrows, ncols) = self.shape();
+
+        #[expect(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         [nrows as i32, ncols as i32]
     }
 }

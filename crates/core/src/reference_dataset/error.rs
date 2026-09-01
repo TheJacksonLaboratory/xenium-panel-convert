@@ -61,4 +61,6 @@ pub enum WriteReferenceDatasetError {
     },
     #[error("cannot overwrite {path} - move or delete the existing annotations.csv file")]
     AnnotationsCsvExists { path: Utf8PathBuf },
+    #[error("cannot write CSV to {path} ({reason})")]
+    WriteCsv { path: Utf8PathBuf, reason: String },
 }

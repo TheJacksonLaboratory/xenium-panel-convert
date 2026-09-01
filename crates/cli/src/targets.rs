@@ -56,7 +56,7 @@ pub(super) fn convert_target_list(
             Ok(Some(gene_list))
         }
         Err(e) => {
-            write_json_to_file(&e, &output_file_path("target-list.errors.json"))?;
+            write_json_to_file(&e, &output_file_path("target-list-errors.json"))?;
 
             Ok(None)
         }
