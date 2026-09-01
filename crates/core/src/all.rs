@@ -69,7 +69,9 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
     reference_dataset_transcriptome: TranscriptomeName,
     reference_dataset_is_flex: bool,
 ) -> Result<(), TargetListReferenceDatasetCompatibilityWarningInner> {
-    // If we have a PseudoAnndata, we know that the either the transcriptome is 'other' or the features match the transcriptome exactly, so it's okay to return Ok with no transcriptome
+    // If we have a PseudoAnndata, we know that the either the transcriptome is
+    // 'other' or the features match the transcriptome exactly, so it's okay to
+    // return Ok with no transcriptome
     let Some(transcriptome) =
         Transcriptome::new(reference_dataset_transcriptome, reference_dataset_is_flex)
     else {

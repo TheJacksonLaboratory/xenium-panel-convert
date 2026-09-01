@@ -198,7 +198,8 @@ pub enum ReadH5FieldError {
         object_path: String,
     },
     #[error(
-        "null-values found at each of the provided indices of {object_path} - ensure every element of the array has a value"
+        "null-values found at each of the provided indices of {object_path} - ensure every \
+         element of the array has a value"
     )]
     NullValues {
         indices: Vec<usize>,

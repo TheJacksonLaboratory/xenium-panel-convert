@@ -174,10 +174,9 @@ impl ValidTarget {
             parse_custom_field(custom.as_deref()).map_or_else(|err| errors.push_err(err), Some);
 
         let valid_gene = match is_custom {
-            Some(true) => None,
+            Some(true) | None => None,
             Some(false) => ValidGene::from_unvalidated(gene, ensembl_id_to_gene)
                 .map_or_else(|err| errors.push_err(err), Some),
-            None => None,
         };
 
         match (valid_gene, group, priority, is_custom) {

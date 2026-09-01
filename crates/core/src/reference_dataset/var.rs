@@ -1,3 +1,4 @@
+#![allow(clippy::result_large_err)]
 use std::collections::HashSet;
 
 use hdf5_metno::{
@@ -120,7 +121,10 @@ fn validate_var_matches_transcriptome(
                 found_gene_name: name.to_string(),
             });
 
-            hints.insert("some gene names differ between the dataset and reference transcriptome - if you used AnnData.var_names_make_unique, try regenerating the dataset without it");
+            hints.insert(
+                "some gene names differ between the dataset and reference transcriptome - if you \
+                 used AnnData.var_names_make_unique, try regenerating the dataset without it",
+            );
         }
     }
 
