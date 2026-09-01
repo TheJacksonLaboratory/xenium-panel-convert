@@ -2,6 +2,7 @@ use serde::Serialize;
 
 use crate::{
     common::ErrorVecExt,
+    error::Hinted,
     target_list::{
         chemistry::{EnsemblId, GeneName},
         target::{UnvalidatedTarget, ValidGene},
@@ -14,29 +15,12 @@ pub struct TargetErrorSet {
     pub line_number: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub submitted_target: Option<UnvalidatedTarget>,
-    pub errors: Vec<TargetError>,
-}
-
-#[derive(Clone, Debug, Serialize, PartialEq, thiserror::Error)]
-#[error("{error}")]
-pub struct TargetError {
-    #[serde(flatten)]
-    pub error: TargetErrorInner,
-    pub hint: String,
-}
-
-impl From<TargetErrorInner> for TargetError {
-    fn from(error: TargetErrorInner) -> Self {
-        Self {
-            hint: error.to_string(),
-            error,
-        }
-    }
+    pub errors: Vec<Hinted<TargetError>>,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, thiserror::Error)]
 #[serde(rename_all = "snake_case", tag = "type")]
-pub enum TargetErrorInner {
+pub enum TargetError {
     #[error("ensure the CSV is properly formatted")]
     MalformedCsv { reason: String },
     #[error("add the field {fieldname} to the CSV")]
@@ -69,13 +53,13 @@ pub enum TargetErrorInner {
     DuplicateGene,
 }
 
-impl From<csv::Error> for TargetErrorInner {
+impl From<csv::Error> for TargetError {
     fn from(err: csv::Error) -> Self {
         Self::from(&err)
     }
 }
 
-impl<'a> From<&'a csv::Error> for TargetErrorInner {
+impl<'a> From<&'a csv::Error> for TargetError {
     fn from(err: &'a csv::Error) -> Self {
         Self::MalformedCsv {
             reason: err.to_string(),
@@ -83,8 +67,8 @@ impl<'a> From<&'a csv::Error> for TargetErrorInner {
     }
 }
 
-impl ErrorVecExt<TargetErrorInner> for Vec<TargetErrorInner> {
-    fn push_err<T>(&mut self, err: TargetErrorInner) -> Option<T> {
+impl ErrorVecExt<TargetError> for Vec<TargetError> {
+    fn push_err<T>(&mut self, err: TargetError) -> Option<T> {
         self.push(err);
 
         None

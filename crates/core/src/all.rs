@@ -1,4 +1,5 @@
 use crate::{
+    error::Hinted,
     reference_dataset::{
         pseudo_anndata::PseudoAnndata,
         transcriptome::{Transcriptome, TranscriptomeName},
@@ -15,16 +16,15 @@ pub fn validate_target_list_and_reference_dataset_compatibility(
     reference_dataset: &PseudoAnndata,
     reference_dataset_transcriptome: TranscriptomeName,
     reference_dataset_is_flex: bool,
-) -> Vec<TargetListReferenceDatasetCompatibilityWarning> {
+) -> Vec<Hinted<TargetListReferenceDatasetCompatibilityWarning>> {
     // Return early because this warning implies the other two warning types
     if !species_and_transcriptome_match(target_list_species, reference_dataset_transcriptome) {
-        return vec![
-            TargetListReferenceDatasetCompatibilityWarningInner::SpeciesTranscriptomeMismatch {
+        return vec![Hinted::new(
+            TargetListReferenceDatasetCompatibilityWarning::SpeciesTranscriptomeMismatch {
                 target_list_species,
                 reference_dataset_transcriptome,
-            }
-            .into(),
-        ];
+            },
+        )];
     }
 
     let mut warnings = Vec::with_capacity(target_list.len());
@@ -42,7 +42,7 @@ pub fn validate_target_list_and_reference_dataset_compatibility(
         ) {
             Ok(()) => (),
             Err(w) => {
-                warnings.push(w.into());
+                warnings.push(Hinted::new(w));
             }
         }
     }
@@ -68,7 +68,7 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
     reference_dataset: &PseudoAnndata,
     reference_dataset_transcriptome: TranscriptomeName,
     reference_dataset_is_flex: bool,
-) -> Result<(), TargetListReferenceDatasetCompatibilityWarningInner> {
+) -> Result<(), TargetListReferenceDatasetCompatibilityWarning> {
     // If we have a PseudoAnndata, we know that the either the transcriptome is
     // 'other' or the features match the transcriptome exactly, so it's okay to
     // return Ok with no transcriptome
@@ -83,7 +83,7 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
         .expect("if we have a PseudoAnndata, we know its features are exactly the transcriptome");
 
     let gene_name_from_transcriptome = gene_map.get(gene.ensembl_id.as_str()).ok_or(
-        TargetListReferenceDatasetCompatibilityWarningInner::TargetNotInReferenceDataset {
+        TargetListReferenceDatasetCompatibilityWarning::TargetNotInReferenceDataset {
             gene,
             transcriptome: reference_dataset_transcriptome,
         },
@@ -91,7 +91,7 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
 
     if gene.gene_name != *gene_name_from_transcriptome {
         return Err(
-            TargetListReferenceDatasetCompatibilityWarningInner::GeneNameMismatch {
+            TargetListReferenceDatasetCompatibilityWarning::GeneNameMismatch {
                 gene_in_target_list: gene,
                 gene_name_in_reference_dataset: gene_name_from_transcriptome,
             },
@@ -101,28 +101,9 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
     Ok(())
 }
 
-#[derive(Clone, Debug, thiserror::Error, serde::Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-#[error("{warning}")]
-pub struct TargetListReferenceDatasetCompatibilityWarning {
-    pub hint: String,
-    pub warning: TargetListReferenceDatasetCompatibilityWarningInner,
-}
-
-impl From<TargetListReferenceDatasetCompatibilityWarningInner>
-    for TargetListReferenceDatasetCompatibilityWarning
-{
-    fn from(value: TargetListReferenceDatasetCompatibilityWarningInner) -> Self {
-        Self {
-            hint: value.to_string(),
-            warning: value,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum TargetListReferenceDatasetCompatibilityWarningInner {
+pub enum TargetListReferenceDatasetCompatibilityWarning {
     #[error(
         "target-list and reference dataset transcriptome do not have the same species \
          ({target_list_species} and {reference_dataset_transcriptome})"

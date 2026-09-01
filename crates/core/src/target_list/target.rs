@@ -7,7 +7,7 @@ use strum::VariantNames;
 use crate::{
     common::ErrorVecExt,
     target_list::{
-        TargetErrorInner,
+        TargetError,
         chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId, UnvalidatedGeneName},
     },
 };
@@ -48,9 +48,9 @@ impl ValidGene {
             gene_name: submitted_gene_name,
         }: &UnvalidatedGene,
         ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
-    ) -> Result<Self, TargetErrorInner> {
+    ) -> Result<Self, TargetError> {
         let Some(ensembl_id) = ensembl_id else {
-            return Err(TargetErrorInner::NoEnsemblId);
+            return Err(TargetError::NoEnsemblId);
         };
 
         let map_valid_gene = |(ensembl_id, gene_name)| Self {
@@ -62,15 +62,15 @@ impl ValidGene {
             let correct_gene =
                 ensembl_id_to_gene(&ensembl_id.to_versionless_uppercase()).map(map_valid_gene);
 
-            return Err(TargetErrorInner::VersionedOrLowercaseEnsemblId { correct_gene });
+            return Err(TargetError::VersionedOrLowercaseEnsemblId { correct_gene });
         }
 
         let valid_gene = ensembl_id_to_gene(ensembl_id)
             .map(map_valid_gene)
-            .ok_or(TargetErrorInner::GeneNotFound)?;
+            .ok_or(TargetError::GeneNotFound)?;
 
         let Some(submitted_gene_name) = submitted_gene_name else {
-            return Err(TargetErrorInner::NoGeneName {
+            return Err(TargetError::NoGeneName {
                 probable_gene_name: valid_gene.gene_name,
             });
         };
@@ -78,7 +78,7 @@ impl ValidGene {
         if *submitted_gene_name == valid_gene.gene_name {
             Ok(valid_gene)
         } else {
-            Err(TargetErrorInner::EnsemblIdGeneNameMismatch {
+            Err(TargetError::EnsemblIdGeneNameMismatch {
                 ensembl_id: valid_gene.ensembl_id,
                 correct_gene_name: valid_gene.gene_name,
             })
@@ -158,13 +158,13 @@ impl ValidTarget {
             custom,
         }: &UnvalidatedTarget,
         ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
-    ) -> Result<Self, Vec<TargetErrorInner>> {
+    ) -> Result<Self, Vec<TargetError>> {
         let mut errors = Vec::new();
 
         let group = group.as_deref().map(str::to_ascii_lowercase);
 
         if group.is_none() {
-            errors.push(TargetErrorInner::MissingField { fieldname: "group" });
+            errors.push(TargetError::MissingField { fieldname: "group" });
         }
 
         let priority =
@@ -207,7 +207,7 @@ impl ValidTarget {
     }
 }
 
-fn parse_custom_field(s: Option<&str>) -> Result<bool, TargetErrorInner> {
+fn parse_custom_field(s: Option<&str>) -> Result<bool, TargetError> {
     let Some(s) = s else {
         return Ok(false);
     };
@@ -217,7 +217,7 @@ fn parse_custom_field(s: Option<&str>) -> Result<bool, TargetErrorInner> {
     } else if s.eq_ignore_ascii_case("false") {
         Ok(false)
     } else {
-        Err(TargetErrorInner::InvalidValue {
+        Err(TargetError::InvalidValue {
             field: "custom",
             value: s.to_owned(),
             allowed: &["true", "false"],
@@ -225,14 +225,14 @@ fn parse_custom_field(s: Option<&str>) -> Result<bool, TargetErrorInner> {
     }
 }
 
-fn parse_priority_field(s: Option<&str>) -> Result<Priority, TargetErrorInner> {
+fn parse_priority_field(s: Option<&str>) -> Result<Priority, TargetError> {
     let Some(s) = s else {
-        return Err(TargetErrorInner::MissingField {
+        return Err(TargetError::MissingField {
             fieldname: "priority",
         });
     };
 
-    Priority::from_str(s).map_err(|_| TargetErrorInner::InvalidValue {
+    Priority::from_str(s).map_err(|_| TargetError::InvalidValue {
         field: "priority",
         value: s.to_owned(),
         allowed: Priority::VARIANTS,
@@ -244,7 +244,7 @@ mod tests {
     use strum::VariantNames;
 
     use crate::target_list::{
-        TargetErrorInner,
+        TargetError,
         chemistry::{
             UnvalidatedEnsemblId, UnvalidatedGeneName, tests::tp53_ensembl_id,
             xenium_v1_human_ensembl_id_to_gene,
@@ -289,13 +289,13 @@ mod tests {
         assert_eq!(
             errors,
             [
-                TargetErrorInner::MissingField { fieldname: "group" },
-                TargetErrorInner::InvalidValue {
+                TargetError::MissingField { fieldname: "group" },
+                TargetError::InvalidValue {
                     field: "priority",
                     value: "urgent".to_owned(),
                     allowed: Priority::VARIANTS,
                 },
-                TargetErrorInner::NoEnsemblId,
+                TargetError::NoEnsemblId,
             ],
             "every error in a row should be reported, not just the first"
         );
@@ -312,7 +312,7 @@ mod tests {
         )
         .unwrap_err();
 
-        assert_eq!(err, TargetErrorInner::NoEnsemblId);
+        assert_eq!(err, TargetError::NoEnsemblId);
     }
 
     #[test]
@@ -369,7 +369,7 @@ mod tests {
 
         assert_eq!(
             err,
-            TargetErrorInner::EnsemblIdGeneNameMismatch {
+            TargetError::EnsemblIdGeneNameMismatch {
                 ensembl_id: correct_ensembl_id,
                 correct_gene_name
             },
@@ -397,7 +397,7 @@ mod tests {
 
         assert_eq!(
             err,
-            TargetErrorInner::VersionedOrLowercaseEnsemblId {
+            TargetError::VersionedOrLowercaseEnsemblId {
                 correct_gene: Some(ValidGene {
                     ensembl_id: correct_ensembl_id,
                     gene_name: correct_gene_name,
@@ -422,7 +422,7 @@ mod tests {
 
         assert_eq!(
             err,
-            TargetErrorInner::NoGeneName {
+            TargetError::NoGeneName {
                 probable_gene_name: correct_gene_name
             }
         );

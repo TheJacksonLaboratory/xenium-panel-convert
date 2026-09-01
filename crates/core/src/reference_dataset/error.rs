@@ -3,6 +3,7 @@ use serde::Serialize;
 
 use crate::{
     common::ErrorVecExt,
+    error::Hinted,
     reference_dataset::{
         h5_util::{CreateH5GroupError, ReadH5FieldError, WriteH5DatasetError},
         pseudo_anndata::ShapeMismatchError,
@@ -23,22 +24,13 @@ pub enum ReadReferenceDatasetErrorSet {
     #[error("invalid matrix")]
     Matrix {
         path: Utf8PathBuf,
-        errors: Vec<ReadReferenceDatasetError>,
+        errors: Vec<Hinted<ReadReferenceDatasetError>>,
     },
 }
 
 #[derive(Clone, Debug, Serialize, thiserror::Error)]
-#[error("{error}")]
-pub struct ReadReferenceDatasetError {
-    #[serde(flatten)]
-    pub error: ReadReferenceDatasetErrorInner,
-    #[serde(skip_serializing_if = "str::is_empty")]
-    pub hint: String,
-}
-
-#[derive(Clone, Debug, Serialize, thiserror::Error)]
 #[serde(tag = "component", rename_all = "snake_case")]
-pub enum ReadReferenceDatasetErrorInner {
+pub enum ReadReferenceDatasetError {
     #[error(transparent)]
     UmiCounts(#[from] UmiCountsError),
     #[error(transparent)]
@@ -51,9 +43,9 @@ pub enum ReadReferenceDatasetErrorInner {
     Shape(#[from] ShapeMismatchError),
 }
 
-impl<E> ErrorVecExt<E> for Vec<ReadReferenceDatasetErrorInner>
+impl<E> ErrorVecExt<E> for Vec<ReadReferenceDatasetError>
 where
-    E: Into<ReadReferenceDatasetErrorInner>,
+    E: Into<ReadReferenceDatasetError>,
 {
     fn push_err<T>(&mut self, err: E) -> Option<T> {
         self.push(err.into());
@@ -64,7 +56,7 @@ where
 
 #[derive(Clone, Debug, Serialize, thiserror::Error)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum WriteReferenceDatasetErrorInner {
+pub enum WriteReferenceDatasetError {
     #[error("failed to create output directory - {reason}")]
     CreateOutputDir { path: Utf8PathBuf, reason: String },
     #[error("failed to create matrix.h5 - {reason}")]
@@ -81,29 +73,4 @@ pub enum WriteReferenceDatasetErrorInner {
     },
     #[error("cannot overwrite {path} - move or delete the existing annotation.csv file")]
     AnnotationsCsvExists { path: Utf8PathBuf },
-}
-
-impl From<ReadReferenceDatasetErrorInner> for ReadReferenceDatasetError {
-    fn from(error: ReadReferenceDatasetErrorInner) -> Self {
-        Self {
-            hint: error.to_string(),
-            error,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, thiserror::Error)]
-#[error("{error}")]
-pub struct WriteReferenceDatasetError {
-    pub error: WriteReferenceDatasetErrorInner,
-    pub hint: String,
-}
-
-impl From<WriteReferenceDatasetErrorInner> for WriteReferenceDatasetError {
-    fn from(error: WriteReferenceDatasetErrorInner) -> Self {
-        Self {
-            hint: error.to_string(),
-            error,
-        }
-    }
 }

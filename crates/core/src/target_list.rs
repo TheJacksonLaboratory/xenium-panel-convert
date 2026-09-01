@@ -2,10 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId};
 
-use crate::target_list::{
-    csv_util::{read_csv_trimmed, rename_fields},
-    error::{TargetErrorInner, TargetErrorSet},
-    target::{UnvalidatedTarget, ValidTarget},
+use crate::{
+    error::Hinted,
+    target_list::{
+        csv_util::{read_csv_trimmed, rename_fields},
+        error::{TargetError, TargetErrorSet},
+        target::{UnvalidatedTarget, ValidTarget},
+    },
 };
 
 pub mod chemistry;
@@ -27,7 +30,7 @@ pub fn parse_target_list(
         vec![TargetErrorSet {
             line_number: None,
             submitted_target: None,
-            errors: vec![TargetErrorInner::from(e).into()],
+            errors: vec![Hinted::new(TargetError::from(e))],
         }]
     })?;
 
@@ -44,7 +47,7 @@ pub fn parse_target_list(
                 errors.push(TargetErrorSet {
                     line_number: None,
                     submitted_target: None,
-                    errors: vec![TargetErrorInner::from(err).into()],
+                    errors: vec![Hinted::new(TargetError::from(err))],
                 });
 
                 continue;
@@ -63,7 +66,7 @@ pub fn parse_target_list(
                     continue;
                 }
 
-                vec![TargetErrorInner::DuplicateGene]
+                vec![TargetError::DuplicateGene]
             }
             Err(row_errors) => row_errors,
         };
@@ -71,7 +74,7 @@ pub fn parse_target_list(
         errors.push(TargetErrorSet {
             line_number,
             submitted_target: Some(submitted_target),
-            errors: row_errors.into_iter().map(Into::into).collect(),
+            errors: row_errors.into_iter().map(Hinted::new).collect(),
         });
     }
 
@@ -86,10 +89,13 @@ pub fn parse_target_list(
 mod tests {
     use std::collections::HashMap;
 
-    use crate::target_list::{
-        TargetErrorInner,
-        chemistry::{tests::tp53_ensembl_id, xenium_v1_human_ensembl_id_to_gene},
-        parse_target_list,
+    use crate::{
+        error::Hinted,
+        target_list::{
+            TargetError,
+            chemistry::{tests::tp53_ensembl_id, xenium_v1_human_ensembl_id_to_gene},
+            parse_target_list,
+        },
     };
 
     #[test]
@@ -135,7 +141,7 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(errors.len(), 1, "did not find exactly 1 error");
-        assert_eq!(errors[0].errors, [TargetErrorInner::DuplicateGene.into()]);
+        assert_eq!(errors[0].errors, [Hinted::new(TargetError::DuplicateGene)]);
     }
 
     #[test]

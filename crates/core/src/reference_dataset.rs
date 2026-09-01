@@ -7,12 +7,11 @@ use serde::Serialize;
 
 use crate::{
     common::ErrorVecExt,
+    error::Hinted,
     reference_dataset::{
         columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
         error::{
-            ReadReferenceDatasetError, ReadReferenceDatasetErrorInner,
-            ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
-            WriteReferenceDatasetErrorInner,
+            ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
         },
         h5_util::{create_h5_group, write_dataset_to_h5_group},
         obs::{read_cell_annotations_from_h5ad, read_cell_barcodes_from_h5ad},
@@ -52,23 +51,20 @@ pub fn read_reference_dataset(
     let counts = read_umi_counts_from_h5ad(&file).map_or_else(|err| errors.push_err(err), Some);
 
     let barcodes = read_cell_barcodes_from_h5ad(&file, cell_barcode_col)
-        .map_err(ReadReferenceDatasetErrorInner::CellBarcodes)
+        .map_err(ReadReferenceDatasetError::CellBarcodes)
         .map_or_else(|err| errors.push_err(err), Some);
 
     let cell_annotations = read_cell_annotations_from_h5ad(&file, cell_annotation_col)
-        .map_err(ReadReferenceDatasetErrorInner::CellAnnotations)
+        .map_err(ReadReferenceDatasetError::CellAnnotations)
         .map_or_else(|err| errors.push_err(err), Some);
 
     let features = read_features_from_h5ad(&file, ensembl_id_col, gene_name_col, transcriptome)
         .map_or_else(|err| errors.push_err(err), Some);
 
     let collect_matrix_errors =
-        |errs: Vec<ReadReferenceDatasetErrorInner>| ReadReferenceDatasetErrorSet::Matrix {
+        |errs: Vec<ReadReferenceDatasetError>| ReadReferenceDatasetErrorSet::Matrix {
             path: path.to_owned(),
-            errors: errs
-                .into_iter()
-                .map(ReadReferenceDatasetError::from)
-                .collect(),
+            errors: errs.into_iter().map(Hinted::new).collect(),
         };
 
     let (Some(counts), Some(barcodes), Some(cell_annotations), Some(features)) =
@@ -92,7 +88,7 @@ pub fn write_reference_dataset(
     ds: &PseudoAnndata,
 ) -> Result<(), WriteReferenceDatasetError> {
     if !dir.exists() {
-        fs::create_dir_all(dir).map_err(|e| WriteReferenceDatasetErrorInner::CreateOutputDir {
+        fs::create_dir_all(dir).map_err(|e| WriteReferenceDatasetError::CreateOutputDir {
             path: dir.to_owned(),
             reason: e.to_string(),
         })?;
@@ -100,10 +96,9 @@ pub fn write_reference_dataset(
 
     let annotations_path = dir.join("annotations.csv");
     if annotations_path.exists() {
-        return Err(WriteReferenceDatasetErrorInner::AnnotationsCsvExists {
+        return Err(WriteReferenceDatasetError::AnnotationsCsvExists {
             path: annotations_path,
-        }
-        .into());
+        });
     }
     write_annotations_csv(&annotations_path, ds.barcodes(), ds.cell_annotations());
 
@@ -133,19 +128,19 @@ fn write_matrix(
     dataset: &PseudoAnndata,
 ) -> Result<(), WriteReferenceDatasetError> {
     let file =
-        File::create_excl(path).map_err(|e| WriteReferenceDatasetErrorInner::CreateMatrixFile {
+        File::create_excl(path).map_err(|e| WriteReferenceDatasetError::CreateMatrixFile {
             path: path.to_path_buf(),
             reason: e.to_string(),
         })?;
 
     let matrix_group = create_h5_group(&file, "matrix").map_err(|error| {
-        WriteReferenceDatasetErrorInner::CreateH5Group {
+        WriteReferenceDatasetError::CreateH5Group {
             path: path.to_path_buf(),
             error,
         }
     })?;
 
-    let write_err = |error| WriteReferenceDatasetErrorInner::WriteH5Dataset {
+    let write_err = |error| WriteReferenceDatasetError::WriteH5Dataset {
         path: path.to_path_buf(),
         error,
     };
@@ -191,19 +186,21 @@ mod tests {
     };
     use tempfile::TempDir;
 
-    use crate::reference_dataset::{
-        Barcode,
-        columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
-        error::{
-            ReadReferenceDatasetError, ReadReferenceDatasetErrorInner,
-            ReadReferenceDatasetErrorSet, WriteReferenceDatasetErrorInner,
+    use crate::{
+        error::Hinted,
+        reference_dataset::{
+            Barcode,
+            columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
+            error::{
+                ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
+            },
+            h5_util::read_test_1d_dataset,
+            pseudo_anndata::PseudoAnndata,
+            read_reference_dataset,
+            transcriptome::{Transcriptome, TranscriptomeName},
+            var::{EnsemblId, GeneName, VarError},
+            write_reference_dataset,
         },
-        h5_util::read_test_1d_dataset,
-        pseudo_anndata::PseudoAnndata,
-        read_reference_dataset,
-        transcriptome::{Transcriptome, TranscriptomeName},
-        var::{EnsemblId, GeneName, VarError},
-        write_reference_dataset,
     };
 
     const REAL_H5AD: &str = "test-data/1k_mouse_kidney_CNIK_3pv3_filtered_feature_bc_matrix.h5ad";
@@ -259,16 +256,16 @@ mod tests {
         std::assert_matches!(
             errors.as_slice(),
             [
-                ReadReferenceDatasetError {
-                    error: ReadReferenceDatasetErrorInner::CellBarcodes(..),
+                Hinted {
+                    error: ReadReferenceDatasetError::CellBarcodes(..),
                     ..
                 },
-                ReadReferenceDatasetError {
-                    error: ReadReferenceDatasetErrorInner::CellAnnotations(..),
+                Hinted {
+                    error: ReadReferenceDatasetError::CellAnnotations(..),
                     ..
                 },
-                ReadReferenceDatasetError {
-                    error: ReadReferenceDatasetErrorInner::Var(VarError::InvalidH5Fields { .. }),
+                Hinted {
+                    error: ReadReferenceDatasetError::Var(VarError::InvalidH5Fields { .. }),
                     ..
                 },
             ],
@@ -380,10 +377,8 @@ mod tests {
         fs::write(existing_annotations_path.join("annotations.csv"), "").unwrap();
 
         std::assert_matches!(
-            write_reference_dataset(&existing_annotations_path, &dataset)
-                .unwrap_err()
-                .error,
-            WriteReferenceDatasetErrorInner::AnnotationsCsvExists { .. }
+            write_reference_dataset(&existing_annotations_path, &dataset).unwrap_err(),
+            WriteReferenceDatasetError::AnnotationsCsvExists { .. }
         );
 
         let existing_matrix = utf8_path_from_temp_dir(&dir).join("existing-matrix");
@@ -391,10 +386,8 @@ mod tests {
         fs::write(existing_matrix.join("matrix.h5"), "").unwrap();
 
         std::assert_matches!(
-            write_reference_dataset(&existing_matrix, &dataset)
-                .unwrap_err()
-                .error,
-            WriteReferenceDatasetErrorInner::CreateMatrixFile { .. }
+            write_reference_dataset(&existing_matrix, &dataset).unwrap_err(),
+            WriteReferenceDatasetError::CreateMatrixFile { .. }
         );
     }
 
