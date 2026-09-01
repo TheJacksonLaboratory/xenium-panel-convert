@@ -190,24 +190,24 @@ enum StringEncodingType {
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ReadH5FieldError {
     #[error(
-        "ensure that {object_path} exists and is a {field_type} - was the correct column-name \
-         provided?"
+        "{object_path} is missing or is not a {field_type} - ensure the correct column name was \
+         provided"
     )]
     DataTypeOrMissing {
         field_type: FieldType,
         object_path: String,
     },
     #[error(
-        "null-values found at each of the provided indices of {object_path} - ensure every \
-         element of the array has a value"
+        "null values were found at the given indices of {object_path} - ensure every element of \
+         the array has a value"
     )]
     NullValues {
         indices: Vec<usize>,
         object_path: String,
     },
     #[error(
-        "unknown encoding type {found} at {object_path}, expected one of {expected:?} - was \
-         scanpy used correctly?"
+        "{object_path} has an unknown encoding type {found}, expected one of {expected:?} - \
+         ensure the file was written by scanpy"
     )]
     UnknownEncodingType {
         object_path: String,

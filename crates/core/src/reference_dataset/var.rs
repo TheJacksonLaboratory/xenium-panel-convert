@@ -178,11 +178,11 @@ impl Features {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum VarError {
     #[error(
-        "one or more fields in .var were improperly formatted or nonexistent - did you pass in \
-         the right column names?"
+        "one or more fields in .var are missing or improperly formatted - ensure the correct \
+         column names were provided"
     )]
     InvalidH5Fields { errors: Vec<ReadH5FieldError> },
-    #[error("some genes were filtered out of the dataset (expected: {}, found: {n_found_genes})",
+    #[error("some genes were filtered out of the dataset (expected {}, found {n_found_genes}) - provide a dataset containing every gene in the transcriptome",
         n_expected_genes2.map_or_else(|| n_expected_genes.to_string(), |n2| format!("{n_expected_genes} or {n2}")))]
     FilteredGenes {
         n_expected_genes: usize,
@@ -191,9 +191,9 @@ pub enum VarError {
         n_found_genes: usize,
     },
     #[error(
-        "invalid shapes: {ensembl_ids_len} Ensembl IDs, {gene_names_len} gene names, \
-         {feature_types_len} feature types - the AnnData object was corrupted or there is a bug \
-         in scanpy"
+        ".var has {ensembl_ids_len} Ensembl IDs, {gene_names_len} gene names and \
+         {feature_types_len} feature types, but these must all be equal - regenerate the dataset \
+         with scanpy"
     )]
     InvalidShapes {
         ensembl_ids_len: usize,

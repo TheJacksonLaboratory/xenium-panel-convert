@@ -105,14 +105,13 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TargetListReferenceDatasetCompatibilityWarning {
     #[error(
-        "target-list and reference dataset transcriptome do not have the same species \
-         ({target_list_species} and {reference_dataset_transcriptome})"
+        "the target-list is {target_list_species} but the reference dataset was aligned against {reference_dataset_transcriptome}"
     )]
     SpeciesTranscriptomeMismatch {
         target_list_species: Species,
         reference_dataset_transcriptome: TranscriptomeName,
     },
-    #[error("{} ({}) not in reference dataset, whose transcriptome is {transcriptome}", gene.gene_name, gene.ensembl_id)]
+    #[error("{} ({}) is not in the reference dataset, whose transcriptome is {transcriptome}", gene.gene_name, gene.ensembl_id)]
     TargetNotInReferenceDataset {
         gene: ValidGene,
         transcriptome: TranscriptomeName,

@@ -20,21 +20,26 @@ pub struct TargetErrorSet {
 #[derive(Clone, Debug, Serialize, PartialEq, thiserror::Error)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum TargetError {
-    #[error("ensure the CSV is properly formatted")]
+    #[error("the CSV could not be parsed ({reason}) - ensure it is properly formatted")]
     MalformedCsv { reason: String },
-    #[error("add the field {fieldname} to the CSV")]
+    #[error("the field {fieldname} is missing - add it to the CSV")]
     MissingField { fieldname: &'static str },
-    #[error("change {value} to one of {}", allowed.join(","))]
+    #[error("{value} is not a valid {field} - change it to one of {}", allowed.join(", "))]
     InvalidValue {
         field: &'static str,
         value: String,
         allowed: &'static [&'static str],
     },
-    #[error("remove the Ensembl ID version and uppercase it")]
+    #[error(
+        "the Ensembl ID is versioned or lowercase - remove the version and uppercase the ID"
+    )]
     VersionedOrLowercaseEnsemblId { correct_gene: Option<ValidGene> },
-    #[error("add an Ensembl ID")]
+    #[error("no Ensembl ID was provided - add one")]
     NoEnsemblId,
-    #[error("add a gene name (based on the Ensembl ID, it is probably {probable_gene_name})")]
+    #[error(
+        "no gene name was provided - add one (based on the Ensembl ID, it is probably \
+         {probable_gene_name})"
+    )]
     NoGeneName { probable_gene_name: GeneName },
     #[error(
         "the gene name corresponding to the Ensembl ID {ensembl_id} is {correct_gene_name} - \
@@ -45,10 +50,10 @@ pub enum TargetError {
         correct_gene_name: GeneName,
     },
     #[error(
-        "gene not found - see 10x Genomics allowed genes at: https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-gene-list#yesprobe"
+        "this gene is not available for the chosen chemistry - see the 10x Genomics allowed genes at: https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-gene-list#yesprobe"
     )]
     GeneNotFound,
-    #[error("remove this entry from the gene-list")]
+    #[error("this gene appears more than once in the target-list - remove this entry")]
     DuplicateGene,
 }
 

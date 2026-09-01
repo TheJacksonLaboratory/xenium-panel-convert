@@ -48,17 +48,17 @@ pub enum ReadReferenceDatasetError {
 #[derive(Clone, Debug, Serialize, thiserror::Error)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WriteReferenceDatasetError {
-    #[error("failed to create output directory - {reason}")]
+    #[error("the output directory {path} could not be created ({reason})")]
     CreateOutputDir { path: Utf8PathBuf, reason: String },
-    #[error("failed to create matrix.h5 - {reason}")]
+    #[error("{path} could not be created ({reason})")]
     CreateMatrixFile { path: Utf8PathBuf, reason: String },
     #[error(
-        "failed to write H5 object {} to file {path} ({})", error.object_path, error.reason
+        "the H5 object {} could not be written to file {path} ({})", error.object_path, error.reason
     )]
     WriteH5Object {
         path: Utf8PathBuf,
         error: WriteH5ObjectError,
     },
-    #[error("cannot overwrite {path} - move or delete the existing annotation.csv file")]
+    #[error("cannot overwrite {path} - move or delete the existing annotations.csv file")]
     AnnotationsCsvExists { path: Utf8PathBuf },
 }
