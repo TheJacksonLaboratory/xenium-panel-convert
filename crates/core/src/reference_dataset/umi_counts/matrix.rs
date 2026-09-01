@@ -67,10 +67,14 @@ impl RawCscUmiCounts {
         self.0.as_matrix().indptr()
     }
 
-    pub(crate) fn shape(&self) -> [i32; 2] {
-        let (nrows, ncols) = self.0.as_matrix().shape();
+    pub(crate) fn shape(&self) -> (usize, usize) {
+        self.0.as_matrix().shape()
+    }
 
-        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+    pub(crate) fn shape_as_i32(&self) -> [i32; 2] {
+        let (nrows, ncols) = self.shape();
+
+        #[expect(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         [nrows as i32, ncols as i32]
     }
 }
@@ -119,7 +123,7 @@ fn calculate_total_counts_for_all_cells(data: &[i32], indptr: IndPtrView<'_, i64
     total_counts
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn calculate_total_counts_for_cell(
     data: &[i32],
     Range {
@@ -131,12 +135,12 @@ fn calculate_total_counts_for_cell(
     cell_counts.iter().sum()
 }
 
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn f32_to_i32(f: f32) -> Result<i32, UmiCountsError> {
     let is_nonnegative_integral = f.round() == f && f >= 0.0;
 
     if is_nonnegative_integral {
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(clippy::cast_possible_truncation)]
         Ok(f as i32)
     } else {
         Err(UmiCountsError::TransformedCounts)
@@ -168,6 +172,7 @@ mod tests {
     #[test]
     fn total_counts_are_correct() {
         let mtx = csr();
+        #[expect(clippy::cast_possible_truncation)]
         let data: Vec<_> = mtx.data().iter().map(|f| *f as i32).collect();
 
         assert_eq!(
@@ -178,7 +183,7 @@ mod tests {
         );
     }
 
-    #[allow(clippy::similar_names)]
+    #[expect(clippy::similar_names)]
     #[test]
     fn storage_orders_are_equivalent() {
         let csr = csr();

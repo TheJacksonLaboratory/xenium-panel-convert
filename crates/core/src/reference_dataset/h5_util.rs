@@ -36,18 +36,6 @@ pub(super) fn read_attribute<T: H5Type>(
         })
 }
 
-pub(super) fn read_1d_dataset<T: H5Type>(
-    file: &File,
-    path: &str,
-) -> Result<Array1<T>, ReadH5FieldError> {
-    file.dataset(path).and_then(|ds| ds.read_1d()).map_err(|_| {
-        ReadH5FieldError::DataTypeOrMissing {
-            field_type: FieldType::Dataset,
-            object_path: path.to_owned(),
-        }
-    })
-}
-
 pub(super) fn read_dataset_raw<T: H5Type>(
     file: &File,
     path: &str,
@@ -86,24 +74,33 @@ fn read_categorical_array(
     file: &File,
     path: &str,
 ) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
+    let mut null_indices = Vec::new();
+
     let codes = read_1d_dataset::<i32>(file, &format!("{path}/codes"))?;
     let categories = read_1d_dataset::<VarLenUnicode>(file, &format!("{path}/categories"))?;
 
-    codes
+    let array = codes
         .iter()
         .enumerate()
-        .map(|(i, code)| {
+        .filter_map(|(i, code)| {
             if *code == -1 {
-                return Err(ReadH5FieldError::NullValue {
-                    index: i,
-                    object_path: path.to_owned(),
-                });
+                null_indices.push(i);
+                None
+            } else {
+                #[expect(clippy::cast_sign_loss)]
+                Some(categories[*code as usize].clone())
             }
-
-            #[allow(clippy::cast_sign_loss)]
-            Ok(categories[*code as usize].clone())
         })
-        .collect()
+        .collect();
+
+    if null_indices.is_empty() {
+        Ok(array)
+    } else {
+        Err(ReadH5FieldError::NullValues {
+            indices: null_indices,
+            object_path: path.to_owned(),
+        })
+    }
 }
 
 fn read_string_array(file: &File, path: &str) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
@@ -115,26 +112,45 @@ fn read_nullable_string_array(
     path: &str,
 ) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
     let is_null_array = read_1d_dataset::<bool>(file, &format!("{path}/mask"))?;
-    if let Some((index, _)) = is_null_array
+    let null_indices: Vec<_> = is_null_array
         .iter()
         .enumerate()
-        .find(|(_, is_null)| **is_null)
-    {
-        return Err(ReadH5FieldError::NullValue {
-            index,
-            object_path: path.to_owned(),
-        });
-    }
+        .filter_map(|(i, is_null)| is_null.then_some(i))
+        .collect();
 
-    read_string_array(file, &format!("{path}/values"))
+    if null_indices.is_empty() {
+        read_string_array(file, &format!("{path}/values"))
+    } else {
+        Err(ReadH5FieldError::NullValues {
+            indices: null_indices,
+            object_path: path.to_owned(),
+        })
+    }
+}
+
+fn read_1d_dataset<T: H5Type>(file: &File, path: &str) -> Result<Array1<T>, ReadH5FieldError> {
+    file.dataset(path).and_then(|ds| ds.read_1d()).map_err(|_| {
+        ReadH5FieldError::DataTypeOrMissing {
+            field_type: FieldType::Dataset,
+            object_path: path.to_owned(),
+        }
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn read_test_1d_dataset<T: H5Type>(
+    file: &File,
+    path: &str,
+) -> Result<Array1<T>, ReadH5FieldError> {
+    read_1d_dataset(file, path)
 }
 
 pub(super) fn to_ascii<const N: usize>(s: &VarLenUnicode) -> FixedAscii<N> {
     FixedAscii::from_ascii(&s).expect("all strings are ASCII in this context")
 }
 
-pub(super) fn create_h5_group(file: &File, path: &str) -> Result<Group, CreateH5GroupError> {
-    file.create_group(path).map_err(|e| CreateH5GroupError {
+pub(super) fn create_h5_group(file: &File, path: &str) -> Result<Group, WriteH5ObjectError> {
+    file.create_group(path).map_err(|e| WriteH5ObjectError {
         object_path: path.to_owned(),
         reason: e.to_string(),
     })
@@ -144,7 +160,7 @@ pub(super) fn write_dataset_to_h5_group<'d, A, T, D>(
     group: &Group,
     path: &str,
     data: A,
-) -> Result<(), WriteH5DatasetError>
+) -> Result<(), WriteH5ObjectError>
 where
     A: Into<ArrayView<'d, T, D>>,
     T: H5Type,
@@ -154,7 +170,7 @@ where
         .new_dataset_builder()
         .with_data(data)
         .create(path)
-        .map_err(|e| WriteH5DatasetError {
+        .map_err(|e| WriteH5ObjectError {
             object_path: path.to_owned(),
             reason: e.to_string(),
         })?;
@@ -174,21 +190,24 @@ enum StringEncodingType {
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ReadH5FieldError {
     #[error(
-        "ensure that {object_path} exists and is a {field_type} - was the correct column-name \
-         provided?"
+        "{object_path} is missing or is not a {field_type} - ensure the correct column name was \
+         provided"
     )]
     DataTypeOrMissing {
         field_type: FieldType,
         object_path: String,
     },
     #[error(
-        "null-value found at index {index} of {object_path} - ensure every element of the array \
-         has a value"
+        "null values were found at the given indices of {object_path} - ensure every element of \
+         the array has a value"
     )]
-    NullValue { index: usize, object_path: String },
+    NullValues {
+        indices: Vec<usize>,
+        object_path: String,
+    },
     #[error(
-        "unknown encoding type {found} at {object_path}, expected one of {expected:?} - was \
-         scanpy used correctly?"
+        "{object_path} has an unknown encoding type {found}, expected one of {expected:?} - \
+         ensure the file was written by scanpy"
     )]
     UnknownEncodingType {
         object_path: String,
@@ -206,16 +225,8 @@ pub enum FieldType {
     Dataset,
 }
 
-#[derive(Debug, Clone, Serialize, thiserror::Error)]
-#[error("failed to create H5 group at {object_path} - {reason}")]
-pub struct CreateH5GroupError {
-    pub object_path: String,
-    pub reason: String,
-}
-
-#[derive(Debug, Clone, Serialize, thiserror::Error)]
-#[error("failed to write H5 dataset at {object_path} - {reason}")]
-pub struct WriteH5DatasetError {
+#[derive(Debug, Clone, Serialize)]
+pub struct WriteH5ObjectError {
     pub object_path: String,
     pub reason: String,
 }
@@ -235,10 +246,14 @@ mod tests {
 
     #[test]
     fn unannotated_cells_are_rejected() {
-        std::assert_matches!(
-            read_obs_column("annotation_missing").unwrap_err(),
-            ReadH5FieldError::NullValue { index: 9, .. },
-            "the missing value in obs/annotation_missing was not reported"
-        );
+        let ReadH5FieldError::NullValues {
+            indices,
+            object_path: _,
+        } = read_obs_column("annotation_missing").unwrap_err()
+        else {
+            panic!("expecting null-values error");
+        };
+
+        assert_eq!(indices, [9]);
     }
 }

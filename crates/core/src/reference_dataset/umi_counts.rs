@@ -72,19 +72,23 @@ pub enum UmiCountsError {
     #[error(transparent)]
     MalformedCounts { error: ReadH5FieldError },
     #[error(
-        "unknown encoding type {found}, expected one of {expected:?} - was scanpy used correctly?"
+        "the counts in X have an unknown encoding type {found}, expected one of {expected:?} - \
+         ensure the file was written by scanpy"
     )]
     UnknownEncodingType {
         found: String,
         expected: &'static [&'static str],
     },
-    #[error("empty counts - was scanpy used correctly?")]
+    #[error("every cell has a total count of zero - provide a dataset with raw UMI counts")]
     EmptyCounts,
-    #[error("transformed counts - use raw, untransformed counts")]
+    #[error("the counts are not whole, non-negative numbers - provide raw, untransformed counts")]
     TransformedCounts,
-    #[error("normalized counts - use raw, untransformed, unnormalized counts")]
+    #[error(
+        "every cell has the same total count, so the counts have been normalized - provide raw, \
+         unnormalized counts"
+    )]
     NormalizedCounts,
-    #[error("malformed matrix: {reason} - was scanpy used correctly?")]
+    #[error("the counts matrix is malformed ({reason}) - ensure the file was written by scanpy")]
     MalformedMatrix { reason: String },
 }
 

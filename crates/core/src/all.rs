@@ -1,44 +1,49 @@
 use crate::{
+    error::Hinted,
     reference_dataset::{
         pseudo_anndata::PseudoAnndata,
         transcriptome::{Transcriptome, TranscriptomeName},
     },
     target_list::{
-        chemistry::Species, target::ValidGene, xenium_panel_designer::XeniumPanelDesignerGeneList,
+        chemistry::Species,
+        target::{ValidGene, ValidTarget},
     },
 };
 
 #[must_use]
 pub fn validate_target_list_and_reference_dataset_compatibility(
-    target_list: &XeniumPanelDesignerGeneList,
+    target_list: &[ValidTarget],
     target_list_species: Species,
     reference_dataset: &PseudoAnndata,
     reference_dataset_transcriptome: TranscriptomeName,
     reference_dataset_is_flex: bool,
-) -> Vec<TargetListReferenceDatasetCompatibilityWarning> {
+) -> Vec<Hinted<TargetListReferenceDatasetCompatibilityWarning>> {
     // Return early because this warning implies the other two warning types
     if !species_and_transcriptome_match(target_list_species, reference_dataset_transcriptome) {
-        return vec![
-            TargetListReferenceDatasetCompatibilityWarningInner::SpeciesTranscriptomeMismatch {
+        return vec![Hinted::new(
+            TargetListReferenceDatasetCompatibilityWarning::SpeciesTranscriptomeMismatch {
                 target_list_species,
                 reference_dataset_transcriptome,
-            }
-            .into(),
-        ];
+            },
+        )];
     }
 
     let mut warnings = Vec::with_capacity(target_list.len());
 
-    for target in target_list.as_slice() {
+    for target in target_list {
+        let Some(gene) = target.gene().valid_gene() else {
+            continue;
+        };
+
         match validate_gene_is_in_transcriptome_with_correct_name(
-            target.gene(),
+            gene,
             reference_dataset,
             reference_dataset_transcriptome,
             reference_dataset_is_flex,
         ) {
             Ok(()) => (),
             Err(w) => {
-                warnings.push(w.into());
+                warnings.push(Hinted::new(w));
             }
         }
     }
@@ -60,28 +65,35 @@ fn species_and_transcriptome_match(species: Species, transcriptome: Transcriptom
 }
 
 fn validate_gene_is_in_transcriptome_with_correct_name(
-    target: ValidGene,
+    gene: ValidGene,
     reference_dataset: &PseudoAnndata,
     reference_dataset_transcriptome: TranscriptomeName,
     reference_dataset_is_flex: bool,
-) -> Result<(), TargetListReferenceDatasetCompatibilityWarningInner> {
-    let transcriptome =
-        Transcriptome::new(reference_dataset_transcriptome, reference_dataset_is_flex);
+) -> Result<(), TargetListReferenceDatasetCompatibilityWarning> {
+    // If we have a PseudoAnndata, we know that the either the transcriptome is
+    // 'other' or the features match the transcriptome exactly, so it's okay to
+    // return Ok with no transcriptome
+    let Some(transcriptome) =
+        Transcriptome::new(reference_dataset_transcriptome, reference_dataset_is_flex)
+    else {
+        return Ok(());
+    };
+
     let gene_map = transcriptome
         .gene_map(reference_dataset.features().len())
         .expect("if we have a PseudoAnndata, we know its features are exactly the transcriptome");
 
-    let gene_name_from_transcriptome = gene_map.get(target.ensembl_id.as_str()).ok_or(
-        TargetListReferenceDatasetCompatibilityWarningInner::TargetNotInReferenceDataset {
-            gene: target,
+    let gene_name_from_transcriptome = gene_map.get(gene.ensembl_id.as_str()).ok_or(
+        TargetListReferenceDatasetCompatibilityWarning::TargetNotInReferenceDataset {
+            gene,
             transcriptome: reference_dataset_transcriptome,
         },
     )?;
 
-    if target.gene_name != *gene_name_from_transcriptome {
+    if gene.gene_name != *gene_name_from_transcriptome {
         return Err(
-            TargetListReferenceDatasetCompatibilityWarningInner::GeneNameMismatch {
-                gene_in_target_list: target,
+            TargetListReferenceDatasetCompatibilityWarning::GeneNameMismatch {
+                gene_in_target_list: gene,
                 gene_name_in_reference_dataset: gene_name_from_transcriptome,
             },
         );
@@ -90,37 +102,18 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
     Ok(())
 }
 
-#[derive(Clone, Debug, thiserror::Error, serde::Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-#[error("{warning}")]
-pub struct TargetListReferenceDatasetCompatibilityWarning {
-    pub hint: String,
-    pub warning: TargetListReferenceDatasetCompatibilityWarningInner,
-}
-
-impl From<TargetListReferenceDatasetCompatibilityWarningInner>
-    for TargetListReferenceDatasetCompatibilityWarning
-{
-    fn from(value: TargetListReferenceDatasetCompatibilityWarningInner) -> Self {
-        Self {
-            hint: value.to_string(),
-            warning: value,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, thiserror::Error, serde::Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum TargetListReferenceDatasetCompatibilityWarningInner {
+pub enum TargetListReferenceDatasetCompatibilityWarning {
     #[error(
-        "target-list and reference dataset transcriptome do not have the same species \
-         ({target_list_species} and {reference_dataset_transcriptome})"
+        "the target-list is {target_list_species} but the reference dataset was aligned against \
+         {reference_dataset_transcriptome}"
     )]
     SpeciesTranscriptomeMismatch {
         target_list_species: Species,
         reference_dataset_transcriptome: TranscriptomeName,
     },
-    #[error("{} ({}) not in reference dataset, whose transcriptome is {transcriptome}", gene.gene_name, gene.ensembl_id)]
+    #[error("{} ({}) is not in the reference dataset, whose transcriptome is {transcriptome}", gene.gene_name, gene.ensembl_id)]
     TargetNotInReferenceDataset {
         gene: ValidGene,
         transcriptome: TranscriptomeName,

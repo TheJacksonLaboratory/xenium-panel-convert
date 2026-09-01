@@ -1,4 +1,4 @@
-#![allow(clippy::unreadable_literal)]
+#![expect(clippy::unreadable_literal)]
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
@@ -45,6 +45,13 @@ impl Display for EnsemblId {
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneName(&'static str);
 
+impl GeneName {
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        self.0
+    }
+}
+
 impl PartialEq<&str> for GeneName {
     fn eq(&self, other: &&str) -> bool {
         self.0 == *other
@@ -79,8 +86,7 @@ impl UnvalidatedEnsemblId {
             .any(|c| c == '.' || (c.is_alphabetic() && !c.is_uppercase()))
     }
 
-    #[cfg(test)]
-    pub(super) fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
 }
@@ -92,6 +98,10 @@ impl UnvalidatedGeneName {
     #[cfg(test)]
     pub(super) fn new(gene_name: String) -> Self {
         Self(gene_name)
+    }
+
+    pub(super) fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
@@ -138,7 +148,7 @@ fn ensembl_id_to_gene(
 }
 
 #[cfg(test)]
-pub(super) mod tests {
+pub(crate) mod tests {
     use crate::target_list::chemistry::{
         GeneName, UnvalidatedEnsemblId, xenium_prime_human::XENIUM_PRIME_HUMAN_GENES,
         xenium_prime_mouse::XENIUM_PRIME_MOUSE_GENES, xenium_v1_human::XENIUM_V1_HUMAN_GENES,

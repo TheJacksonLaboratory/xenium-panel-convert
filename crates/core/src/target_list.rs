@@ -2,10 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId};
 
-use crate::target_list::{
-    csv_util::{read_csv_trimmed, rename_fields},
-    error::{TargetErrorInner, TargetErrorSet},
-    target::{UnvalidatedTarget, ValidTarget},
+use crate::{
+    error::Hinted,
+    target_list::{
+        csv_util::{read_csv_trimmed, rename_fields},
+        error::{TargetError, TargetErrorSet},
+        target::{UnvalidatedTarget, ValidTarget},
+    },
 };
 
 pub mod chemistry;
@@ -25,19 +28,17 @@ pub fn parse_target_list(
     // If we can't get headers, just return early
     let headers = reader.headers().map_err(|e| {
         vec![TargetErrorSet {
-            errors: vec![TargetErrorInner::from(e).into()],
             line_number: None,
             submitted_target: None,
+            errors: vec![Hinted::new(TargetError::from(e))],
         }]
     })?;
 
-    // We initialize the list of errors from the field-renaming, but it doesn't
-    // prevent us from continuing the parsing
-    let (fieldnames, error) = rename_fields(headers, field_aliases);
-    let mut errors = error.map(|e| vec![e]).unwrap_or_default();
+    let fieldnames = rename_fields(headers, field_aliases);
 
     let mut valid_targets = Vec::with_capacity(N_GENES);
     let mut seen_genes = HashSet::with_capacity(N_GENES);
+    let mut errors = Vec::new();
 
     for record in reader.records() {
         let record = match record {
@@ -46,7 +47,7 @@ pub fn parse_target_list(
                 errors.push(TargetErrorSet {
                     line_number: None,
                     submitted_target: None,
-                    errors: vec![TargetErrorInner::from(err).into()],
+                    errors: vec![Hinted::new(TargetError::from(err))],
                 });
 
                 continue;
@@ -56,15 +57,17 @@ pub fn parse_target_list(
         let line_number = record.position().map(csv::Position::line);
         let submitted_target = UnvalidatedTarget::from_record(&record, &fieldnames);
 
-        let row_errors = match submitted_target.validate(ensembl_id_to_gene) {
+        let row_errors = match ValidTarget::from_unvalidated(&submitted_target, ensembl_id_to_gene)
+        {
             Ok(valid_target) => {
-                if seen_genes.insert(valid_target.gene()) {
+                // Cloning is cheap for the vast majority of genes
+                if seen_genes.insert(valid_target.gene().clone()) {
                     valid_targets.push(valid_target);
 
                     continue;
                 }
 
-                vec![TargetErrorInner::DuplicateGene]
+                vec![TargetError::DuplicateGene]
             }
             Err(row_errors) => row_errors,
         };
@@ -72,7 +75,7 @@ pub fn parse_target_list(
         errors.push(TargetErrorSet {
             line_number,
             submitted_target: Some(submitted_target),
-            errors: row_errors.into_iter().map(Into::into).collect(),
+            errors: row_errors.into_iter().map(Hinted::new).collect(),
         });
     }
 
@@ -87,10 +90,13 @@ pub fn parse_target_list(
 mod tests {
     use std::collections::HashMap;
 
-    use crate::target_list::{
-        TargetErrorInner,
-        chemistry::{tests::tp53_ensembl_id, xenium_v1_human_ensembl_id_to_gene},
-        parse_target_list,
+    use crate::{
+        error::Hinted,
+        target_list::{
+            TargetError,
+            chemistry::{tests::tp53_ensembl_id, xenium_v1_human_ensembl_id_to_gene},
+            parse_target_list,
+        },
     };
 
     #[test]
@@ -108,7 +114,10 @@ mod tests {
 
         let gene_names: Vec<_> = targets
             .iter()
-            .map(|t| t.gene().gene_name.to_string())
+            .map(|target| {
+                let (_, gene_name) = target.gene().as_strs();
+                gene_name.unwrap()
+            })
             .collect();
         assert_eq!(
             gene_names,
@@ -136,7 +145,7 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(errors.len(), 1, "did not find exactly 1 error");
-        assert_eq!(errors[0].errors, [TargetErrorInner::DuplicateGene.into()]);
+        assert_eq!(errors[0].errors, [Hinted::new(TargetError::DuplicateGene)]);
     }
 
     #[test]

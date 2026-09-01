@@ -31,13 +31,13 @@ impl PseudoAnndata {
             counts_shape,
         });
 
-        let [n_genes, n_cells] = counts_shape.map(i128::from);
+        let (n_genes, n_cells) = counts_shape;
 
-        if n_genes != n_features as i128 {
+        if n_genes != n_features {
             return err;
         }
 
-        if n_cells != n_barcodes as i128 || n_cells != n_annotations as i128 {
+        if n_cells != n_barcodes || n_cells != n_annotations {
             return err;
         }
 
@@ -68,11 +68,11 @@ impl PseudoAnndata {
 
 #[derive(Clone, Copy, Debug, Serialize, thiserror::Error)]
 #[error(
-    "invalid shape: {n_barcodes} barcodes, {n_annotations} cell annotations, {n_features} features with counts shape ({}, {}) - expected n_barcodes == n_cell_annotations == n_counts_columns and n_features == n_counts_rows - was scanpy used correctly?", counts_shape[0], counts_shape[1]
+    "the dataset has {n_barcodes} barcodes, {n_annotations} cell annotations and {n_features} features, but its counts matrix is {}x{} - ensure there is one feature per row of the matrix and one barcode and one annotation per column", counts_shape.0, counts_shape.1
 )]
 pub struct ShapeMismatchError {
     pub n_barcodes: usize,
     pub n_annotations: usize,
     pub n_features: usize,
-    pub counts_shape: [i32; 2],
+    pub counts_shape: (usize, usize),
 }

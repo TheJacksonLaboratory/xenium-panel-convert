@@ -1,4 +1,4 @@
-#![allow(clippy::unreadable_literal)]
+#![expect(clippy::unreadable_literal)]
 use crate::reference_dataset::transcriptome::{
     grch38_2020_a::GRCH38_2020_A, grch38_2020_a_flex::GRCH38_2020_A_FLEX,
     grch38_2024_a::GRCH38_2024_A, grch38_2024_a_flex_v1_1::GRCH38_2024_A_FLEX_V1_1,
@@ -31,8 +31,11 @@ pub enum Transcriptome {
 
 impl Transcriptome {
     #[must_use]
-    pub fn new(transcriptome: TranscriptomeName, flex: bool) -> Self {
-        match (transcriptome, flex) {
+    pub fn new(transcriptome: TranscriptomeName, flex: bool) -> Option<Self> {
+        let transcriptome = match (transcriptome, flex) {
+            (TranscriptomeName::Other, _) => {
+                return None;
+            }
             (TranscriptomeName::Grch382020A, false) => Self::ThreePrime(&GRCH38_2020_A),
             (TranscriptomeName::Grch382020A, true) => Self::Flex2020A(&GRCH38_2020_A_FLEX),
             (TranscriptomeName::Grch382024A, false) => Self::ThreePrime(&GRCH38_2024_A),
@@ -47,7 +50,9 @@ impl Transcriptome {
                 v1: &GRCM39_2024_A_FLEX_V1_1,
                 v2: &GRCM39_2024_A_FLEX_V2_0,
             },
-        }
+        };
+
+        Some(transcriptome)
     }
 
     #[must_use]
@@ -88,31 +93,22 @@ impl Transcriptome {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, strum::EnumString, strum::Display, serde::Serialize)]
+#[strum(ascii_case_insensitive)]
 pub enum TranscriptomeName {
     #[serde(rename = "GRCh38-2020-A")]
-    #[strum(
-        serialize = "GRCh38-2020-A",
-        serialize = "h2020",
-        ascii_case_insensitive
-    )]
+    #[strum(serialize = "GRCh38-2020-A", serialize = "h2020")]
     Grch382020A,
     #[serde(rename = "GRCh38-2024-A")]
-    #[strum(
-        serialize = "GRCh38-2024-A",
-        serialize = "h2024",
-        ascii_case_insensitive
-    )]
+    #[strum(serialize = "GRCh38-2024-A", serialize = "h2024")]
     Grch382024A,
     #[serde(rename = "mm10-2020-A")]
-    #[strum(serialize = "mm10-2020-A", serialize = "m2020", ascii_case_insensitive)]
+    #[strum(serialize = "mm10-2020-A", serialize = "m2020")]
     Mm102020A,
     #[serde(rename = "GRCm39-2024-A")]
-    #[strum(
-        serialize = "GRCm39-2024-A",
-        serialize = "m2024",
-        ascii_case_insensitive
-    )]
+    #[strum(serialize = "GRCm39-2024-A", serialize = "m2024")]
     Grcm392024A,
+    #[strum(serialize = "other", serialize = "o")]
+    Other,
 }
 
 #[cfg(test)]
@@ -126,7 +122,7 @@ mod tests {
 
     #[test]
     fn genes_are_selected_by_count() {
-        let three_prime = Transcriptome::new(TranscriptomeName::Grch382020A, false);
+        let three_prime = Transcriptome::new(TranscriptomeName::Grch382020A, false).unwrap();
 
         std::assert_matches!(three_prime.gene_map(100), None);
         assert_eq!(
@@ -134,7 +130,7 @@ mod tests {
             &GRCH38_2020_A
         );
 
-        let human_flex = Transcriptome::new(TranscriptomeName::Grch382024A, true);
+        let human_flex = Transcriptome::new(TranscriptomeName::Grch382024A, true).unwrap();
 
         assert_eq!(
             human_flex.gene_map(GRCH38_2024_A_FLEX_V1_1.len()).unwrap(),
@@ -145,7 +141,7 @@ mod tests {
             &GRCH38_2024_A_FLEX_V2_0
         );
 
-        let mouse_flex = Transcriptome::new(TranscriptomeName::Grcm392024A, true);
+        let mouse_flex = Transcriptome::new(TranscriptomeName::Grcm392024A, true).unwrap();
 
         assert_eq!(
             mouse_flex.gene_map(GRCM39_2024_A_FLEX_V2_0.len()).unwrap(),
