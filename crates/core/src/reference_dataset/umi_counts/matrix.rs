@@ -123,7 +123,7 @@ fn calculate_total_counts_for_all_cells(data: &[i32], indptr: IndPtrView<'_, i64
     total_counts
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn calculate_total_counts_for_cell(
     data: &[i32],
     Range {
@@ -135,12 +135,12 @@ fn calculate_total_counts_for_cell(
     cell_counts.iter().sum()
 }
 
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn f32_to_i32(f: f32) -> Result<i32, UmiCountsError> {
     let is_nonnegative_integral = f.round() == f && f >= 0.0;
 
     if is_nonnegative_integral {
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(clippy::cast_possible_truncation)]
         Ok(f as i32)
     } else {
         Err(UmiCountsError::TransformedCounts)
@@ -183,7 +183,7 @@ mod tests {
         );
     }
 
-    #[allow(clippy::similar_names)]
+    #[expect(clippy::similar_names)]
     #[test]
     fn storage_orders_are_equivalent() {
         let csr = csr();

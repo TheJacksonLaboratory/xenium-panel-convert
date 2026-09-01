@@ -1,4 +1,4 @@
-#![allow(clippy::unreadable_literal)]
+#![expect(clippy::unreadable_literal)]
 use crate::reference_dataset::transcriptome::{
     grch38_2020_a::GRCH38_2020_A, grch38_2020_a_flex::GRCH38_2020_A_FLEX,
     grch38_2024_a::GRCH38_2024_A, grch38_2024_a_flex_v1_1::GRCH38_2024_A_FLEX_V1_1,

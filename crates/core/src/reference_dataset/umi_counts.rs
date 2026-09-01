@@ -81,9 +81,7 @@ pub enum UmiCountsError {
     },
     #[error("every cell has a total count of zero - provide a dataset with raw UMI counts")]
     EmptyCounts,
-    #[error(
-        "the counts are not whole, non-negative numbers - provide raw, untransformed counts"
-    )]
+    #[error("the counts are not whole, non-negative numbers - provide raw, untransformed counts")]
     TransformedCounts,
     #[error(
         "every cell has the same total count, so the counts have been normalized - provide raw, \

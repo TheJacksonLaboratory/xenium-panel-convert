@@ -87,7 +87,7 @@ fn read_categorical_array(
                 null_indices.push(i);
                 None
             } else {
-                #[allow(clippy::cast_sign_loss)]
+                #[expect(clippy::cast_sign_loss)]
                 Some(categories[*code as usize].clone())
             }
         })

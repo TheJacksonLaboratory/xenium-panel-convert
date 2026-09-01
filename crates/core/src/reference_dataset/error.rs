@@ -30,7 +30,8 @@ impl ReadReferenceDatasetErrorSet {
 #[serde(tag = "component", rename_all = "snake_case")]
 pub enum ReadReferenceDatasetError {
     #[error(
-        "the file could not be opened as an H5 file ({reason}) - ensure it exists and was written by scanpy"
+        "the file could not be opened as an H5 file ({reason}) - ensure it exists and was written \
+         by scanpy"
     )]
     H5File { reason: String },
     #[error(transparent)]
