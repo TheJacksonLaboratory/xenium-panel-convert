@@ -67,3 +67,33 @@ impl Default for GeneNameCol {
         Self(String::from("_index"))
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CountsLayerName(String);
+
+impl CountsLayerName {
+    #[must_use]
+    pub(super) fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn new(layer_name: &str) -> Self {
+        Self(format!("layers/{layer_name}"))
+    }
+
+    pub fn x() -> Self {
+        Self::default()
+    }
+}
+
+impl Display for CountsLayerName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Default for CountsLayerName {
+    fn default() -> Self {
+        Self(String::from("X"))
+    }
+}

@@ -5,6 +5,7 @@ pub(super) use matrix::RawCscUmiCounts;
 use serde::Serialize;
 
 use crate::reference_dataset::{
+    columns::CountsLayerName,
     h5_util::{FieldType, ReadH5FieldError, read_attribute, read_container, read_dataset_raw},
     umi_counts::encoding_type::{DenseEncodingType, EncodingType, SparseEncodingType},
 };
@@ -12,41 +13,52 @@ use crate::reference_dataset::{
 mod encoding_type;
 mod matrix;
 
-pub(super) fn read_umi_counts_from_h5ad(file: &File) -> Result<RawCscUmiCounts, UmiCountsError> {
+pub(super) fn read_umi_counts_from_h5ad(
+    file: &File,
+    layer_name: &CountsLayerName,
+) -> Result<RawCscUmiCounts, UmiCountsError> {
+    dbg!(layer_name);
     let encoding_type: VarLenUnicode =
-        read_attribute(&read_container(file, "X")?, "encoding-type")?;
+        read_attribute(&read_container(file, layer_name.as_str())?, "encoding-type")?;
 
     let encoding_type = EncodingType::from_str(&encoding_type).map_err(|()| {
         UmiCountsError::UnknownEncodingType {
             found: encoding_type.to_string(),
+            layer_name: layer_name.to_string(),
             expected: EncodingType::VARIANTS,
         }
     })?;
 
     match encoding_type {
-        EncodingType::Sparse(enc) => read_x_sparse(file, enc),
-        EncodingType::Dense(enc) => read_x_dense(file, enc),
+        EncodingType::Sparse(enc) => read_x_sparse(file, layer_name, enc),
+        EncodingType::Dense(enc) => read_x_dense(file, layer_name, enc),
     }
 }
 
 fn read_x_sparse(
     file: &File,
+    layer_name: &CountsLayerName,
     encoding_type: SparseEncodingType,
 ) -> Result<RawCscUmiCounts, UmiCountsError> {
-    let data = read_dataset_raw(file, "X/data")?;
-    let indptr = read_dataset_raw(file, "X/indptr")?;
-    let indices = read_dataset_raw(file, "X/indices")?;
+    let data = read_dataset_raw(file, &format!("{layer_name}/data"))?;
+    let indptr = read_dataset_raw(file, &format!("{layer_name}/indptr"))?;
+    let indices = read_dataset_raw(file, &format!("{layer_name}/indices"))?;
 
     // It's very nice that scanpy decides to store the shape as an attribute rather
     // than following 10x Genomics and storing it as a dataset. It's great when a
     // library built to analyze data changes the format of the data for no
     // discernible reason :)
     let shape = file
-        .group("X")
+        .group(layer_name.as_str())
         .and_then(|x| x.attr("shape"))
         .and_then(|sh| sh.read_1d())
         .map_err(|err| {
-            ReadH5FieldError::new_invalid_field(&err, file, "X/shape", FieldType::Attribute)
+            ReadH5FieldError::new_invalid_field(
+                &err,
+                file,
+                &format!("{layer_name}/shape"),
+                FieldType::Attribute,
+            )
         })?;
     let shape = (shape[0], shape[1]);
 
@@ -55,13 +67,15 @@ fn read_x_sparse(
 
 fn read_x_dense(
     file: &File,
+    layer_name: &CountsLayerName,
     encoding_type: DenseEncodingType,
 ) -> Result<RawCscUmiCounts, UmiCountsError> {
-    let counts = file.dataset("X").and_then(|ds| ds.read_2d()).map_err(|_| {
-        UmiCountsError::MalformedMatrix {
-            reason: "failed to read counts in dataset 'X' as 2D array".to_owned(),
-        }
-    })?;
+    let counts = file
+        .dataset(layer_name.as_str())
+        .and_then(|ds| ds.read_2d())
+        .map_err(|_| UmiCountsError::MalformedMatrix {
+            reason: format!("failed to read counts in dataset '{layer_name}' as 2D array"),
+        })?;
 
     RawCscUmiCounts::from_dense_matrix(&counts, encoding_type)
 }
@@ -72,11 +86,12 @@ pub enum UmiCountsError {
     #[error(transparent)]
     MalformedCounts { error: ReadH5FieldError },
     #[error(
-        "the counts in X have an unknown encoding type {found}, expected one of {expected:?} - \
+        "the counts in {layer_name} have an unknown encoding type {found}, expected one of {expected:?} - \
          ensure the file was written by scanpy"
     )]
     UnknownEncodingType {
         found: String,
+        layer_name: String,
         expected: &'static [&'static str],
     },
     #[error("every cell has a total count of zero - provide a dataset with raw UMI counts")]
@@ -110,7 +125,9 @@ impl From<sprs::errors::StructureError> for UmiCountsError {
 mod tests {
     use hdf5_metno::File;
 
-    use crate::reference_dataset::umi_counts::read_umi_counts_from_h5ad;
+    use crate::reference_dataset::{
+        columns::CountsLayerName, umi_counts::read_umi_counts_from_h5ad,
+    };
 
     #[test]
     fn read_h5ad_files() {
@@ -130,7 +147,7 @@ mod tests {
 
         for f in files {
             let filename = f.filename();
-            let counts = read_umi_counts_from_h5ad(&f).unwrap();
+            let counts = read_umi_counts_from_h5ad(&f, &CountsLayerName::default()).unwrap();
 
             if filename.contains("adata") {
                 assert_eq!(

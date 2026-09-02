@@ -6,7 +6,7 @@ use std::{
 use anyhow::{anyhow, bail, ensure};
 use camino::{Utf8Path, Utf8PathBuf};
 use xenium_panel_convert_core::reference_dataset::{
-    columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
+    columns::{CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneNameCol},
     pseudo_anndata::PseudoAnndata,
     read_reference_dataset,
     transcriptome::{Transcriptome, TranscriptomeName},
@@ -25,6 +25,7 @@ pub(super) fn convert_reference_datasets<'a>(
     for spec in reference_datasets {
         let ReferenceDatasetSpec {
             path,
+            counts_layer_name,
             cell_barcode_col,
             cell_annotation_col,
             ensembl_id_col,
@@ -39,6 +40,7 @@ pub(super) fn convert_reference_datasets<'a>(
 
         match read_reference_dataset(
             path,
+            counts_layer_name,
             cell_barcode_col,
             cell_annotation_col,
             ensembl_id_col,
@@ -72,6 +74,7 @@ pub(super) fn dataset_name<'a>(
 #[derive(Clone, Debug)]
 pub(super) struct ReferenceDatasetSpec {
     pub(super) path: Utf8PathBuf,
+    counts_layer_name: CountsLayerName,
     cell_barcode_col: CellBarcodeCol,
     cell_annotation_col: CellAnnotationCol,
     ensembl_id_col: EnsemblIdCol,
@@ -84,7 +87,7 @@ pub(super) struct ReferenceDatasetSpec {
 
 impl ReferenceDatasetSpec {
     fn parse_commandline(s: &str) -> anyhow::Result<Self> {
-        const EXAMPLE: &str = "path=matrix.h5ad,barcode-col=barcodes,annotation-col=annotations,\
+        const EXAMPLE: &str = "path=matrix.h5ad,counts-layer=X,barcode-col=barcodes,annotation-col=annotations,\
                                ensembl-id-col=gene_ids,transcriptome=GRCh38-2024-A\nmatrix.h5ad,\
                                b=barcodes,a=annotations,e=gene_ids,t=h2024";
 
@@ -113,6 +116,7 @@ impl ReferenceDatasetSpec {
 
         let key_aliases: HashMap<_, _> = [
             ("p", "path"),
+            ("c", "counts-layer"),
             ("b", "barcode-col"),
             ("a", "annotation-col"),
             ("e", "ensembl-id-col"),
@@ -166,6 +170,9 @@ impl ReferenceDatasetSpec {
 
         Ok(Self {
             path: get_spec_value(&spec, "path", Utf8PathBuf::from)?,
+            counts_layer_name: get_spec_value_default(&spec, "counts-layer", |s| {
+                CountsLayerName::new(&s)
+            }),
             cell_barcode_col: get_spec_value_default(&spec, "barcode-col", CellBarcodeCol),
             cell_annotation_col: get_spec_value(&spec, "annotation-col", CellAnnotationCol)?,
             ensembl_id_col: get_spec_value_default(&spec, "ensembl-id-col", EnsemblIdCol),
@@ -201,6 +208,7 @@ KEY              ALIAS  VALUE
 - - - - - - - - - - - - - - -
 path           | p | the h5ad file to convert (required)
 annotation-col | a | obs column containing cell annotations (required)
+counts-layer   | c | layer where counts are stored [default: X]
 transcriptome  | t | transcriptome the dataset was aligned against (required)
 barcode-col    | b | obs column containing cell barcodes [default: _index]
 ensembl-id-col | e | var column containing Ensembl IDs [default: gene_ids]
