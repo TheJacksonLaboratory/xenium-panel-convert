@@ -77,6 +77,7 @@ impl CountsLayerName {
         &self.0
     }
 
+    #[must_use]
     pub fn new(layer_name: &str) -> Self {
         if layer_name == "X" {
             Self::x()
@@ -85,6 +86,7 @@ impl CountsLayerName {
         }
     }
 
+    #[must_use]
     pub fn x() -> Self {
         Self::default()
     }
