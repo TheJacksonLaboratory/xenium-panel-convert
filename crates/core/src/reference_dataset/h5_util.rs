@@ -9,14 +9,14 @@ use serde::Serialize;
 use strum::VariantNames;
 
 pub(super) fn read_container(file: &File, path: &str) -> Result<Container, ReadH5FieldError> {
+    // If we can read the field as a group, great, if not, try reading as a dataset
     let container = match file.group(path) {
         Ok(g) => g.as_container().expect("a group should be a container"),
         Err(_) => file
             .dataset(path)
             .and_then(|ds| ds.as_container())
-            .map_err(|_| ReadH5FieldError::DataTypeOrMissing {
-                field_type: FieldType::Container,
-                object_path: path.to_owned(),
+            .map_err(|err| {
+                ReadH5FieldError::new_invalid_field(err, file, path, FieldType::Container)
             })?,
     };
 
@@ -30,9 +30,13 @@ pub(super) fn read_attribute<T: H5Type>(
     container
         .attr(path)
         .and_then(|a| a.read_scalar())
-        .map_err(|_| ReadH5FieldError::DataTypeOrMissing {
-            field_type: FieldType::Attribute,
-            object_path: path.to_owned(),
+        .map_err(|err| {
+            ReadH5FieldError::new_invalid_field(
+                err,
+                &container.file().expect("file should be available"),
+                path,
+                FieldType::Attribute,
+            )
         })
 }
 
@@ -42,10 +46,7 @@ pub(super) fn read_dataset_raw<T: H5Type>(
 ) -> Result<Vec<T>, ReadH5FieldError> {
     file.dataset(path)
         .and_then(|ds| ds.read_raw())
-        .map_err(|_| ReadH5FieldError::DataTypeOrMissing {
-            field_type: FieldType::Dataset,
-            object_path: path.to_owned(),
-        })
+        .map_err(|err| ReadH5FieldError::new_invalid_field(err, file, path, FieldType::Dataset))
 }
 
 pub(super) fn read_1d_string_dataset(
@@ -129,12 +130,9 @@ fn read_nullable_string_array(
 }
 
 fn read_1d_dataset<T: H5Type>(file: &File, path: &str) -> Result<Array1<T>, ReadH5FieldError> {
-    file.dataset(path).and_then(|ds| ds.read_1d()).map_err(|_| {
-        ReadH5FieldError::DataTypeOrMissing {
-            field_type: FieldType::Dataset,
-            object_path: path.to_owned(),
-        }
-    })
+    file.dataset(path)
+        .and_then(|ds| ds.read_1d())
+        .map_err(|err| ReadH5FieldError::new_invalid_field(err, file, path, FieldType::Dataset))
 }
 
 #[cfg(test)]
@@ -190,12 +188,14 @@ enum StringEncodingType {
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ReadH5FieldError {
     #[error(
-        "{object_path} is missing or is not a {field_type} - ensure the correct column name was \
-         provided"
+        "{object_path} could not be read as a {field_type} ({hdf5_error}) - ensure the correct column name was provided (available fields: {:?})", available_fields.as_ref().unwrap_or(&vec![])
     )]
-    DataTypeOrMissing {
-        field_type: FieldType,
+    InvalidField {
+        hdf5_error: String,
         object_path: String,
+        field_type: FieldType,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        available_fields: Option<Vec<String>>,
     },
     #[error(
         "null values were found at the given indices of {object_path} - ensure every element of \
@@ -214,6 +214,22 @@ pub enum ReadH5FieldError {
         found: String,
         expected: &'static [&'static str],
     },
+}
+
+impl ReadH5FieldError {
+    pub(super) fn new_invalid_field(
+        err: hdf5_metno::Error,
+        file: &File,
+        object_path: &str,
+        field_type: FieldType,
+    ) -> Self {
+        Self::InvalidField {
+            hdf5_error: err.to_string(),
+            field_type,
+            object_path: object_path.to_owned(),
+            available_fields: file.attr_names().ok(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, strum::Display)]

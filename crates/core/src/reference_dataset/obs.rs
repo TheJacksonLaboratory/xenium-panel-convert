@@ -87,7 +87,7 @@ mod tests {
 
         std::assert_matches!(
             err,
-            ReadH5FieldError::DataTypeOrMissing {
+            ReadH5FieldError::InvalidField {
                 field_type: FieldType::Container,
                 ..
             }

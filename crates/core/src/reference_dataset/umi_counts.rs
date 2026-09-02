@@ -38,15 +38,13 @@ fn read_x_sparse(
     let indices = read_dataset_raw(file, "X/indices")?;
 
     // It's very nice that scanpy decides to store the shape as an attribute rather
-    // than the following 10x Genomics and storing it as a dataset. It's great when
-    // a library built to analyze data ends up changing the format of the data :)
+    // than following 10x Genomics and storing it as a dataset. It's great when a library built to analyze data changes the format of the data for no discernible reason :)
     let shape = file
         .group("X")
         .and_then(|x| x.attr("shape"))
         .and_then(|sh| sh.read_1d())
-        .map_err(|_| ReadH5FieldError::DataTypeOrMissing {
-            field_type: FieldType::Attribute,
-            object_path: "X/shape".to_owned(),
+        .map_err(|err| {
+            ReadH5FieldError::new_invalid_field(err, file, "X/shape", FieldType::Attribute)
         })?;
     let shape = (shape[0], shape[1]);
 
