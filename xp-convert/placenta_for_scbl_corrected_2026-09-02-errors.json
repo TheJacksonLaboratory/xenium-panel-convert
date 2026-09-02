@@ -1,0 +1,62 @@
+{
+  "path": "../xenium-kappsen-human-placenta-HEZQAU/placenta_for_scbl_corrected_2026-09-02.h5ad",
+  "errors": [
+    {
+      "component": "var",
+      "type": "invalid_h5_fields",
+      "errors": [
+        {
+          "type": "invalid_field",
+          "hdf5_error": "H5Dopen2(): unable to synchronously open dataset: object 'gene_ids' doesn't exist",
+          "object_path": "var/gene_ids",
+          "field_type": "container",
+          "available_objects": [
+            "/X/data",
+            "/X/indices",
+            "/X/indptr",
+            "/obs/_index/mask",
+            "/obs/_index/values",
+            "/obs/annotations_level_2/categories",
+            "/obs/annotations_level_2/codes",
+            "/obsm/X_pca",
+            "/obsm/X_umap",
+            "/obsp/connectivities/data",
+            "/obsp/connectivities/indices",
+            "/obsp/connectivities/indptr",
+            "/obsp/distances/data",
+            "/obsp/distances/indices",
+            "/obsp/distances/indptr",
+            "/uns/annotations_level_0_colors",
+            "/uns/annotations_level_1_colors",
+            "/uns/annotations_level_2_colors",
+            "/uns/hvg/flavor",
+            "/uns/log1p/base",
+            "/uns/neighbors/connectivities_key",
+            "/uns/neighbors/distances_key",
+            "/uns/neighbors/params/bbknn/batch_key",
+            "/uns/neighbors/params/bbknn/computation",
+            "/uns/neighbors/params/bbknn/trim",
+            "/uns/neighbors/params/method",
+            "/uns/neighbors/params/metric",
+            "/uns/neighbors/params/n_neighbors",
+            "/uns/neighbors/params/n_pcs",
+            "/uns/neighbors/params/use_rep",
+            "/uns/pca/params/mask_var",
+            "/uns/pca/params/use_highly_variable",
+            "/uns/pca/params/zero_center",
+            "/uns/pca/variance",
+            "/uns/pca/variance_ratio",
+            "/uns/umap/params/a",
+            "/uns/umap/params/b",
+            "/var/_index/mask",
+            "/var/_index/values",
+            "/var/feature_types/categories",
+            "/var/feature_types/codes",
+            "/varm/PCs"
+          ]
+        }
+      ],
+      "hint": "one or more fields in .var are missing or improperly formatted - ensure the correct column names were provided"
+    }
+  ]
+}

@@ -16,7 +16,7 @@ pub(super) fn read_container(file: &File, path: &str) -> Result<Container, ReadH
             .dataset(path)
             .and_then(|ds| ds.as_container())
             .map_err(|err| {
-                ReadH5FieldError::new_invalid_field(err, file, path, FieldType::Container)
+                ReadH5FieldError::new_invalid_field(&err, file, path, FieldType::Container)
             })?,
     };
 
@@ -32,7 +32,7 @@ pub(super) fn read_attribute<T: H5Type>(
         .and_then(|a| a.read_scalar())
         .map_err(|err| {
             ReadH5FieldError::new_invalid_field(
-                err,
+                &err,
                 &container.file().expect("file should be available"),
                 path,
                 FieldType::Attribute,
@@ -46,7 +46,7 @@ pub(super) fn read_dataset_raw<T: H5Type>(
 ) -> Result<Vec<T>, ReadH5FieldError> {
     file.dataset(path)
         .and_then(|ds| ds.read_raw())
-        .map_err(|err| ReadH5FieldError::new_invalid_field(err, file, path, FieldType::Dataset))
+        .map_err(|err| ReadH5FieldError::new_invalid_field(&err, file, path, FieldType::Dataset))
 }
 
 pub(super) fn read_1d_string_dataset(
@@ -132,7 +132,7 @@ fn read_nullable_string_array(
 fn read_1d_dataset<T: H5Type>(file: &File, path: &str) -> Result<Array1<T>, ReadH5FieldError> {
     file.dataset(path)
         .and_then(|ds| ds.read_1d())
-        .map_err(|err| ReadH5FieldError::new_invalid_field(err, file, path, FieldType::Dataset))
+        .map_err(|err| ReadH5FieldError::new_invalid_field(&err, file, path, FieldType::Dataset))
 }
 
 #[cfg(test)]
@@ -188,14 +188,15 @@ enum StringEncodingType {
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ReadH5FieldError {
     #[error(
-        "{object_path} could not be read as a {field_type} ({hdf5_error}) - ensure the correct column name was provided (available fields: {:?})", available_fields.as_ref().unwrap_or(&vec![])
+        "{object_path} could not be read as a {field_type} ({hdf5_error}) - ensure the correct \
+         column name was provided (available objects in H5AD: {:?})",
+        available_objects
     )]
-    InvalidField {
+    InvalidH5ObjectPath {
         hdf5_error: String,
         object_path: String,
         field_type: FieldType,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        available_fields: Option<Vec<String>>,
+        available_objects: Vec<String>,
     },
     #[error(
         "null values were found at the given indices of {object_path} - ensure every element of \
@@ -218,18 +219,39 @@ pub enum ReadH5FieldError {
 
 impl ReadH5FieldError {
     pub(super) fn new_invalid_field(
-        err: hdf5_metno::Error,
+        err: &hdf5_metno::Error,
         file: &File,
         object_path: &str,
         field_type: FieldType,
     ) -> Self {
-        Self::InvalidField {
+        Self::InvalidH5ObjectPath {
             hdf5_error: err.to_string(),
             field_type,
             object_path: object_path.to_owned(),
-            available_fields: file.attr_names().ok(),
+            available_objects: recurse_through_group(file),
         }
     }
+}
+
+fn recurse_through_group(group: &Group) -> Vec<String> {
+    group
+        .iter_visit_default(
+            Vec::with_capacity(32),
+            |group: &Group, name, _, object_names| {
+                if group.dataset(name).is_ok() {
+                    object_names.push(format!("{}/{name}", group.name()));
+                    return true;
+                }
+
+                if let Ok(nested_group) = group.group(name) {
+                    let mut sub_object_names = recurse_through_group(&nested_group);
+                    object_names.append(&mut sub_object_names);
+                }
+
+                true
+            },
+        )
+        .expect("iterating over a file should not produce errors")
 }
 
 #[derive(Debug, Clone, Copy, Serialize, strum::Display)]
