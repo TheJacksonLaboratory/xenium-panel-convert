@@ -78,7 +78,11 @@ impl CountsLayerName {
     }
 
     pub fn new(layer_name: &str) -> Self {
-        Self(format!("layers/{layer_name}"))
+        if layer_name == "X" {
+            Self::x()
+        } else {
+            Self(format!("layers/{layer_name}"))
+        }
     }
 
     pub fn x() -> Self {
@@ -95,5 +99,22 @@ impl Display for CountsLayerName {
 impl Default for CountsLayerName {
     fn default() -> Self {
         Self(String::from("X"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::reference_dataset::columns::CountsLayerName;
+
+    #[test]
+    fn counts_layer_prepends_layers_scope() {
+        assert_eq!(CountsLayerName::new("counts").as_str(), "layers/counts");
+    }
+
+    #[test]
+    fn counts_layer_name_does_not_prepend_layers_scope_if_x() {
+        assert_eq!(CountsLayerName::new("X").as_str(), "X");
+
+        assert_eq!(CountsLayerName::x(), CountsLayerName::new("X"));
     }
 }

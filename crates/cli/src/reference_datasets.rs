@@ -208,8 +208,8 @@ KEY              ALIAS  VALUE
 - - - - - - - - - - - - - - -
 path           | p | the h5ad file to convert (required)
 annotation-col | a | obs column containing cell annotations (required)
-counts-layer   | c | layer where counts are stored [default: X]
 transcriptome  | t | transcriptome the dataset was aligned against (required)
+counts-layer   | c | layer where counts are stored [default: X]
 barcode-col    | b | obs column containing cell barcodes [default: _index]
 ensembl-id-col | e | var column containing Ensembl IDs [default: gene_ids]
 gene-name-col  | g | var column containing gene names [default: _index]
@@ -228,7 +228,7 @@ mm10-2020-A   | m2020
 GRCm39-2024-A | m2024
 other         | o
 
-Note that setting 'transcriptome' = 'other' will disable checking .var for gene-filtering
+Note that setting 'transcriptome' = 'other' will disable checking .var for gene-filtering.
 
 Examples:
 

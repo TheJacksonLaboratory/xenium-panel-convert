@@ -17,7 +17,6 @@ pub(super) fn read_umi_counts_from_h5ad(
     file: &File,
     layer_name: &CountsLayerName,
 ) -> Result<RawCscUmiCounts, UmiCountsError> {
-    dbg!(layer_name);
     let encoding_type: VarLenUnicode =
         read_attribute(&read_container(file, layer_name.as_str())?, "encoding-type")?;
 
@@ -138,6 +137,7 @@ mod tests {
             "csr_adata",
             "csc_adata",
             "dense_adata",
+            "counts_layer_adata",
             "1k_mouse_kidney_CNIK_3pv3_filtered_feature_bc_matrix",
         ]
         .map(|fname| format!("test-data/{fname}.h5ad"))
@@ -147,7 +147,14 @@ mod tests {
 
         for f in files {
             let filename = f.filename();
-            let counts = read_umi_counts_from_h5ad(&f, &CountsLayerName::default()).unwrap();
+
+            let layer_name = if filename == "counts_layer_adata.h5ad" {
+                CountsLayerName::new("counts")
+            } else {
+                CountsLayerName::x()
+            };
+
+            let counts = read_umi_counts_from_h5ad(&f, &layer_name).unwrap();
 
             if filename.contains("adata") {
                 assert_eq!(
@@ -163,5 +170,6 @@ mod tests {
         // We know the first 3 files are generated from the same data
         assert_eq!(all_counts[0], all_counts[1]);
         assert_eq!(all_counts[0], all_counts[2]);
+        assert_eq!(all_counts[0], all_counts[3]);
     }
 }

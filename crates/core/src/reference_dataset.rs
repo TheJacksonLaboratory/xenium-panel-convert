@@ -221,7 +221,7 @@ mod tests {
     fn read_scanpy_generated_dataset() -> PseudoAnndata {
         read_reference_dataset(
             Utf8Path::new(REAL_H5AD),
-            &CountsLayerName::default(),
+            &CountsLayerName::x(),
             &CellBarcodeCol("barcode".to_owned()),
             &CellAnnotationCol("annotation".to_owned()),
             &EnsemblIdCol("gene_ids".to_owned()),
@@ -254,7 +254,7 @@ mod tests {
 
         let ReadReferenceDatasetErrorSet { path, errors } = read_reference_dataset(
             Utf8Path::new(dataset_path),
-            &CountsLayerName::default(),
+            &CountsLayerName::x(),
             &CellBarcodeCol("foo".to_owned()),
             &CellAnnotationCol("bar".to_owned()),
             &EnsemblIdCol("baz".to_owned()),
