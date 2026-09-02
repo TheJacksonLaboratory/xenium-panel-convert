@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::{
     error::collect_error,
     reference_dataset::{
-        columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
+        columns::{CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneNameCol},
         error::{
             ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
         },
@@ -32,6 +32,7 @@ pub mod var;
 
 pub fn read_reference_dataset(
     path: &Utf8Path,
+    counts_layer_name: &CountsLayerName,
     cell_barcode_col: &CellBarcodeCol,
     cell_annotation_col: &CellAnnotationCol,
     ensembl_id_col: &EnsemblIdCol,
@@ -49,7 +50,10 @@ pub fn read_reference_dataset(
         )
     })?;
 
-    let counts = collect_error(read_umi_counts_from_h5ad(&file), &mut errors);
+    let counts = collect_error(
+        read_umi_counts_from_h5ad(&file, counts_layer_name),
+        &mut errors,
+    );
 
     let barcodes = collect_error(
         read_cell_barcodes_from_h5ad(&file, cell_barcode_col)
@@ -196,7 +200,9 @@ mod tests {
         error::Hinted,
         reference_dataset::{
             Barcode,
-            columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
+            columns::{
+                CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneNameCol,
+            },
             error::{
                 ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
             },
@@ -215,6 +221,7 @@ mod tests {
     fn read_scanpy_generated_dataset() -> PseudoAnndata {
         read_reference_dataset(
             Utf8Path::new(REAL_H5AD),
+            &CountsLayerName::x(),
             &CellBarcodeCol("barcode".to_owned()),
             &CellAnnotationCol("annotation".to_owned()),
             &EnsemblIdCol("gene_ids".to_owned()),
@@ -247,6 +254,7 @@ mod tests {
 
         let ReadReferenceDatasetErrorSet { path, errors } = read_reference_dataset(
             Utf8Path::new(dataset_path),
+            &CountsLayerName::x(),
             &CellBarcodeCol("foo".to_owned()),
             &CellAnnotationCol("bar".to_owned()),
             &EnsemblIdCol("baz".to_owned()),

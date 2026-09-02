@@ -1,6 +1,5 @@
 import anndata as ad
 import numpy as np
-import pandas as pd
 import scanpy as sc
 from scipy.sparse import csc_matrix, csr_matrix
 
@@ -140,6 +139,11 @@ def main():
         adata.var["feature_types"] = ["Gene Expression"] * len(adata.var)
 
         adata.write_h5ad(f"../{name}.h5ad")
+
+    # We also want to write a file that stores counts in a layer rather than .X
+    layered_adata = csc_adata.copy()
+    layered_adata.layers["counts"] = layered_adata.X.copy()
+    layered_adata.write_h5ad("../counts_layer_adata.h5ad")
 
     filename = "../1k_mouse_kidney_CNIK_3pv3_filtered_feature_bc_matrix.h5"
     tenx_adata = sc.read_10x_h5(filename)
