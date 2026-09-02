@@ -87,9 +87,10 @@ pub(super) struct ReferenceDatasetSpec {
 
 impl ReferenceDatasetSpec {
     fn parse_commandline(s: &str) -> anyhow::Result<Self> {
-        const EXAMPLE: &str = "path=matrix.h5ad,counts-layer=X,barcode-col=barcodes,annotation-col=annotations,\
-                               ensembl-id-col=gene_ids,transcriptome=GRCh38-2024-A\nmatrix.h5ad,\
-                               b=barcodes,a=annotations,e=gene_ids,t=h2024";
+        const EXAMPLE: &str = "path=matrix.h5ad,counts-layer=X,barcode-col=barcodes,\
+                               annotation-col=annotations,ensembl-id-col=gene_ids,\
+                               transcriptome=GRCh38-2024-A\nmatrix.h5ad,b=barcodes,a=annotations,\
+                               e=gene_ids,t=h2024";
 
         fn get_spec_value_default<T: Default>(
             spec: &HashMap<&str, &str>,
