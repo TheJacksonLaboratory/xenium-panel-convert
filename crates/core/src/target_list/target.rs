@@ -472,6 +472,6 @@ mod tests {
         writer.serialize(v).unwrap();
         let data = writer.into_inner().unwrap();
 
-        assert_eq!(data, b"ensembl_id,gene_name,group,priority,custom\nsome_ensembl_id,some_gene_name,some_group,must_have,true");
+        assert_eq!(data, b"ensembl_id,gene_name,group,priority,custom\nsome_ensembl_id,some_gene_name,some_group,must_have,true\n");
     }
 }
