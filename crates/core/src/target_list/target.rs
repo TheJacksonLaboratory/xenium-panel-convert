@@ -106,7 +106,7 @@ pub(super) enum Priority {
     Backup,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 pub(crate) enum TargetGene {
     Standard(ValidGene),
     Custom(UnvalidatedGene),
@@ -276,7 +276,9 @@ mod tests {
             xenium_v1_human_ensembl_id_to_gene,
         },
         csv_util::read_csv_trimmed,
-        target::{Priority, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget},
+        target::{
+            Priority, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget, ValidTargetCsvRow,
+        },
     };
 
     #[test]
@@ -452,5 +454,24 @@ mod tests {
                 probable_gene_name: correct_gene_name
             }
         );
+    }
+
+    #[test]
+    fn valid_target_serializes() {
+        let v = ValidTargetCsvRow {
+            ensembl_id: Some("some_ensembl_id"),
+            gene_name: Some("some_gene_name"),
+            group: "some_group",
+            priority: Priority::MustHave,
+            custom: true,
+        };
+
+        let writer = Vec::new();
+        let mut writer = csv::Writer::from_writer(writer);
+
+        writer.serialize(v).unwrap();
+        let data = writer.into_inner().unwrap();
+
+        assert_eq!(data, b"ensembl_id,gene_name,group,priority,custom\nsome_ensembl_id,some_gene_name,some_group,must_have,true");
     }
 }
