@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use csv::StringRecord;
 
+use crate::target_list::target::FIELDNAMES;
+
 pub(super) fn read_csv_trimmed(target_list: &str) -> csv::Reader<&[u8]> {
     let target_list = target_list.trim();
 
@@ -23,6 +25,14 @@ pub(super) fn rename_fields(
     }
 
     renamed_fields
+}
+
+pub(super) fn extract_custom_fieldnames(fieldnames: &StringRecord) -> Vec<String> {
+    fieldnames
+        .iter()
+        .filter(|fieldname| !FIELDNAMES.contains(fieldname))
+        .map(str::to_owned)
+        .collect()
 }
 
 #[cfg(test)]
