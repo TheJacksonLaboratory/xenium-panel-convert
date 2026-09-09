@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn filtered_genes_are_rejected() {
         // The generated datasets have 100 genes
-        let error = read_generated_features("ensembl_id", "gene_name").unwrap_err();
+        let error = read_generated_features("ensembl_id", "_index").unwrap_err();
 
         std::assert_matches!(
             error,

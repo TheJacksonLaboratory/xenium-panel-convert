@@ -49,8 +49,7 @@ mod tests {
     fn reads_barcodes_and_annotations() {
         let file = generated_h5ad();
 
-        let barcodes =
-            read_cell_barcodes_from_h5ad(&file, &CellBarcodeCol("barcode".to_owned())).unwrap();
+        let barcodes = read_cell_barcodes_from_h5ad(&file, &CellBarcodeCol::default()).unwrap();
         let expected_barcodes: Array1<FixedAscii<64>> = (0..10)
             .map(|i| FixedAscii::from_ascii(&format!("cell_{i}")).unwrap())
             .collect();
