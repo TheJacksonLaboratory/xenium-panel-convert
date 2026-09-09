@@ -558,7 +558,8 @@ mod tests {
         let ensembl_id = tp53_ensembl_id();
         let ensembl_id = ensembl_id.as_str();
         let target_list = format!(
-            "ensembl_id,str_field,gene_name,group,priority,number_field\n{ensembl_id},str_value,TP53,group0,must_have,0"
+            "ensembl_id,str_field,gene_name,group,priority,number_field\n{ensembl_id},str_value,\
+             TP53,group0,must_have,0"
         );
 
         let target_list = parse_target_list(
@@ -576,7 +577,8 @@ mod tests {
         let data = serialize_csv(&ValidTargetCsv::from_target_list(&target_list));
 
         let expected = format!(
-            "ensembl_id,gene_name,group,priority,custom,str_field,number_field\n{ensembl_id},TP53,group0,must_have,false,str_value,0\n"
+            "ensembl_id,gene_name,group,priority,custom,str_field,number_field\n{ensembl_id},TP53,\
+             group0,must_have,false,str_value,0\n"
         );
         assert_eq!(data, expected.as_bytes());
     }
