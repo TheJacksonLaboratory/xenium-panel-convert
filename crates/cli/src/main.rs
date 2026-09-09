@@ -60,10 +60,13 @@ enum Command {
     /// Designer.
     ///
     /// The target-list must be a CSV-file with the header:
+    /// "ensembl_id,gene_name,group,priority,custom". Any additional fields will
+    /// be propagated untouched in the output file.
+    ///
     /// A "cleaned" version of the file will be saved at
     /// <OUTPUT_DIR>/validated-targets.csv, and the version for the panel
     /// designer will be saved at
-    /// <OUTPUT_DIR>/xenium-panel-designer-target-list.csv. If errors are
+    /// <OUTPUT_DIR>/xenium-panel-designer-targets.csv. If errors are
     /// encountered, they are collected and written to
     /// <OUTPUT_DIR>/target-list-errors.json.
     Targets(TargetListCliOptions),
