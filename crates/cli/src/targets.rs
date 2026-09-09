@@ -4,17 +4,18 @@ use std::{collections::HashMap, fs};
 use anyhow::{Context, anyhow};
 use camino::{Utf8Path, Utf8PathBuf};
 use xenium_panel_convert_core::target_list::{
+    TargetList,
     chemistry::{
         Chemistry, Species, xenium_prime_human_ensembl_id_to_gene,
         xenium_prime_mouse_ensembl_id_to_gene, xenium_v1_human_ensembl_id_to_gene,
         xenium_v1_mouse_ensembl_id_to_gene,
     },
     parse_target_list,
-    target::{ValidTarget, to_valid_target_csv_rows},
-    xenium_panel_designer::to_xenium_panel_designer_csv_rows,
+    target::ValidTargetCsv,
+    xenium_panel_designer::XeniumPanelDesignerCsv,
 };
 
-use crate::write::{write_csv_to_file, write_json_to_file};
+use crate::write::{write_csv_with_header_to_file, write_json_to_file};
 
 pub(super) fn convert_target_list(
     TargetListCliOptions {
@@ -25,7 +26,7 @@ pub(super) fn convert_target_list(
         chemistry,
     }: &TargetListCliOptions,
     output_dir: &Utf8Path,
-) -> anyhow::Result<Option<Vec<ValidTarget>>> {
+) -> anyhow::Result<Option<TargetList>> {
     let target_list = fs::read_to_string(targets_path)
         .with_context(|| format!("failed to read target-list from {targets_path}"))?;
 
@@ -45,18 +46,22 @@ pub(super) fn convert_target_list(
     let output_file_path = |filename| output_dir.join(filename);
 
     match result {
-        Ok(targets) => {
-            write_csv_to_file(
-                &to_valid_target_csv_rows(&targets),
+        Ok(target_list) => {
+            let valid_target_csv = ValidTargetCsv::from_target_list(&target_list);
+            write_csv_with_header_to_file(
+                valid_target_csv.header(),
+                valid_target_csv.rows(),
                 &output_file_path("validated-targets.csv"),
             )?;
 
-            write_csv_to_file(
-                &to_xenium_panel_designer_csv_rows(&targets),
+            let xpd_csv = XeniumPanelDesignerCsv::from_valid_targets(target_list.targets());
+            write_csv_with_header_to_file(
+                xpd_csv.header(),
+                xpd_csv.rows(),
                 &output_file_path("xenium-panel-designer-targets.csv"),
             )?;
 
-            Ok(Some(targets))
+            Ok(Some(target_list))
         }
         Err(e) => {
             write_json_to_file(&e, &output_file_path("target-list-errors.json"))?;

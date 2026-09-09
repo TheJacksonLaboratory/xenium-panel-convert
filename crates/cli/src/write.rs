@@ -15,12 +15,20 @@ pub(crate) fn write_json_to_file(data: &impl Serialize, path: &Utf8Path) -> anyh
     Ok(())
 }
 
-pub(crate) fn write_csv_to_file(data: &[impl Serialize], path: &Utf8Path) -> anyhow::Result<()> {
+pub(crate) fn write_csv_with_header_to_file(
+    header: &[&str],
+    rows: &[impl Serialize],
+    path: &Utf8Path,
+) -> anyhow::Result<()> {
     ensure!(!path.exists(), "cannot overwrite file at {path}");
 
-    let mut writer = csv::Writer::from_path(path)?;
+    let mut writer = csv::WriterBuilder::new()
+        .has_headers(false)
+        .from_path(path)?;
 
-    for row in data {
+    writer.write_record(header)?;
+
+    for row in rows {
         writer.serialize(row)?;
     }
 

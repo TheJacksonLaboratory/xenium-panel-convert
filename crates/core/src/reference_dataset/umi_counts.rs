@@ -85,8 +85,8 @@ pub enum UmiCountsError {
     #[error(transparent)]
     MalformedCounts { error: ReadH5FieldError },
     #[error(
-        "the counts in {layer_name} have an unknown encoding type {found}, expected one of {expected:?} - \
-         ensure the file was written by scanpy"
+        "the counts in {layer_name} have an unknown encoding type {found}, expected one of \
+         {expected:?} - ensure the file was written by scanpy"
     )]
     UnknownEncodingType {
         found: String,

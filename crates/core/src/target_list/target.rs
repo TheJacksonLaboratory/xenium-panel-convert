@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use csv::StringRecord;
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,7 @@ use strum::VariantNames;
 use crate::{
     error::collect_error,
     target_list::{
-        TargetError,
+        TargetError, TargetList,
         chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId, UnvalidatedGeneName},
     },
 };
@@ -18,6 +18,8 @@ pub struct UnvalidatedGene {
     pub gene_name: Option<UnvalidatedGeneName>,
 }
 
+pub(super) const FIELDNAMES: [&str; 5] = ["ensembl_id", "gene_name", "group", "priority", "custom"];
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UnvalidatedTarget {
     #[serde(flatten)]
@@ -25,6 +27,8 @@ pub struct UnvalidatedTarget {
     pub group: Option<String>,
     pub priority: Option<String>,
     pub custom: Option<String>,
+    #[serde(flatten)]
+    pub other_fields: HashMap<String, String>,
 }
 
 impl UnvalidatedTarget {
@@ -143,6 +147,7 @@ pub struct ValidTarget {
     gene: TargetGene,
     group: String,
     priority: Priority,
+    other_fields: HashMap<String, String>,
 }
 
 impl ValidTarget {
@@ -160,6 +165,7 @@ impl ValidTarget {
             group,
             priority,
             custom,
+            other_fields,
         }: &UnvalidatedTarget,
         ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
     ) -> Result<Self, Vec<TargetError>> {
@@ -190,19 +196,21 @@ impl ValidTarget {
                 gene,
                 group,
                 priority,
+                other_fields: other_fields.clone(),
             }),
             _ => Err(errors),
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ValidTargetCsvRow<'a> {
     ensembl_id: Option<&'a str>,
     gene_name: Option<&'a str>,
     group: &'a str,
     priority: Priority,
     custom: bool,
+    other_fields: Vec<&'a str>,
 }
 
 impl<'a> ValidTargetCsvRow<'a> {
@@ -211,9 +219,24 @@ impl<'a> ValidTargetCsvRow<'a> {
             gene,
             group,
             priority,
+            other_fields,
         }: &'a ValidTarget,
+        custom_fieldnames: &[String],
     ) -> Self {
         let (ensembl_id, gene_name) = gene.as_strs();
+
+        let other_fields = custom_fieldnames
+            .iter()
+            .map(|fieldname| {
+                // Unwrapping is fine because every record has every column of the header, and
+                // every column that isn't one of FIELDNAMES is captured in
+                // `other_fields`
+                other_fields
+                    .get(fieldname)
+                    .expect("custom field is missing from target")
+                    .as_str()
+            })
+            .collect();
 
         Self {
             ensembl_id,
@@ -221,16 +244,46 @@ impl<'a> ValidTargetCsvRow<'a> {
             group,
             priority: *priority,
             custom: gene.is_custom(),
+            other_fields,
         }
     }
 }
 
-#[must_use]
-pub fn to_valid_target_csv_rows(targets: &[ValidTarget]) -> Vec<ValidTargetCsvRow<'_>> {
-    targets
-        .iter()
-        .map(ValidTargetCsvRow::from_valid_target)
-        .collect()
+#[derive(Debug)]
+pub struct ValidTargetCsv<'a> {
+    header: Vec<&'a str>,
+    rows: Vec<ValidTargetCsvRow<'a>>,
+}
+
+impl<'a> ValidTargetCsv<'a> {
+    pub fn from_target_list(
+        TargetList {
+            targets,
+            custom_fieldnames,
+        }: &'a TargetList,
+    ) -> Self {
+        let header = FIELDNAMES
+            .into_iter()
+            .chain(custom_fieldnames.iter().map(String::as_str))
+            .collect();
+
+        let rows = targets
+            .iter()
+            .map(|target| ValidTargetCsvRow::from_valid_target(target, custom_fieldnames))
+            .collect();
+
+        Self { header, rows }
+    }
+
+    #[must_use]
+    pub fn header(&self) -> &[&'a str] {
+        &self.header
+    }
+
+    #[must_use]
+    pub fn rows(&self) -> &[ValidTargetCsvRow<'a>] {
+        &self.rows
+    }
 }
 
 fn parse_custom_field(s: Option<&str>) -> Result<bool, TargetError> {
@@ -267,6 +320,8 @@ fn parse_priority_field(s: Option<&str>) -> Result<Priority, TargetError> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use strum::VariantNames;
 
     use crate::target_list::{
@@ -276,10 +331,26 @@ mod tests {
             xenium_v1_human_ensembl_id_to_gene,
         },
         csv_util::read_csv_trimmed,
+        parse_target_list,
         target::{
-            Priority, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget, ValidTargetCsvRow,
+            FIELDNAMES, Priority, UnvalidatedGene, UnvalidatedTarget, ValidGene, ValidTarget,
+            ValidTargetCsv, ValidTargetCsvRow,
         },
     };
+
+    fn serialize_csv(ValidTargetCsv { header, rows }: &ValidTargetCsv<'_>) -> Vec<u8> {
+        let mut writer = csv::WriterBuilder::new()
+            .has_headers(false)
+            .from_writer(Vec::new());
+
+        writer.write_record(header).unwrap();
+
+        for row in rows {
+            writer.serialize(row).unwrap();
+        }
+
+        writer.into_inner().unwrap()
+    }
 
     #[test]
     fn valid_target() {
@@ -291,6 +362,7 @@ mod tests {
             group: Some("Group0".to_owned()),
             priority: Some("must_have".to_owned()),
             custom: None,
+            other_fields: HashMap::new(),
         };
 
         let valid_target =
@@ -309,6 +381,7 @@ mod tests {
             group: None,
             priority: Some("urgent".to_owned()),
             custom: None,
+            other_fields: HashMap::new(),
         };
 
         let errors =
@@ -373,7 +446,8 @@ mod tests {
                 },
                 group: None,
                 priority: None,
-                custom: None
+                custom: None,
+                other_fields: HashMap::from([("field".to_owned(), "value2".to_owned())]),
             }
         );
     }
@@ -458,20 +532,47 @@ mod tests {
 
     #[test]
     fn valid_target_serializes() {
-        let v = ValidTargetCsvRow {
+        let row = ValidTargetCsvRow {
             ensembl_id: Some("some_ensembl_id"),
             gene_name: Some("some_gene_name"),
             group: "some_group",
             priority: Priority::MustHave,
             custom: true,
+            other_fields: vec!["hello"],
         };
 
-        let writer = Vec::new();
-        let mut writer = csv::Writer::from_writer(writer);
+        let csv = ValidTargetCsv {
+            header: FIELDNAMES.into_iter().chain(["note"]).collect(),
+            rows: vec![row],
+        };
 
-        writer.serialize(v).unwrap();
-        let data = writer.into_inner().unwrap();
+        let data = serialize_csv(&csv);
 
-        assert_eq!(data, b"ensembl_id,gene_name,group,priority,custom\nsome_ensembl_id,some_gene_name,some_group,must_have,true\n");
+        assert_eq!(data, b"ensembl_id,gene_name,group,priority,custom,note\nsome_ensembl_id,some_gene_name,some_group,must_have,true,hello\n");
+    }
+
+    #[test]
+    fn custom_fields_are_propagated_in_input_order() {
+        let ensembl_id = tp53_ensembl_id();
+        let ensembl_id = ensembl_id.as_str();
+        let target_list = format!(
+            "ensembl_id,field1,gene_name,group,priority,field2\n{ensembl_id},value1,TP53,group0,\
+             must_have,value2"
+        );
+
+        let target_list = parse_target_list(
+            &target_list,
+            &HashMap::new(),
+            xenium_v1_human_ensembl_id_to_gene,
+        )
+        .unwrap();
+
+        let data = serialize_csv(&ValidTargetCsv::from_target_list(&target_list));
+
+        let expected = format!(
+            "ensembl_id,gene_name,group,priority,custom,field1,field2\n{ensembl_id},TP53,group0,\
+             must_have,false,value1,value2\n"
+        );
+        assert_eq!(data, expected.as_bytes());
     }
 }

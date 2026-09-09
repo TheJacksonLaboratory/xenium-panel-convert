@@ -20,7 +20,7 @@ pub(super) fn convert_target_list_and_reference_datasets(
 
     for (ds, options) in &reference_datasets {
         let warnings = validate_target_list_and_reference_dataset_compatibility(
-            &target_list,
+            target_list.targets(),
             targets_options.species,
             ds,
             options.transcriptome_name,

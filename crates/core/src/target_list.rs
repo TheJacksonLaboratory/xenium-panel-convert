@@ -5,7 +5,7 @@ use chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId};
 use crate::{
     error::Hinted,
     target_list::{
-        csv_util::{read_csv_trimmed, rename_fields},
+        csv_util::{extract_custom_fieldnames, read_csv_trimmed, rename_fields},
         error::{TargetError, TargetErrorSet},
         target::{UnvalidatedTarget, ValidTarget},
     },
@@ -17,11 +17,24 @@ pub mod error;
 pub mod target;
 pub mod xenium_panel_designer;
 
+#[derive(Debug)]
+pub struct TargetList {
+    targets: Vec<ValidTarget>,
+    custom_fieldnames: Vec<String>,
+}
+
+impl TargetList {
+    #[must_use]
+    pub fn targets(&self) -> &[ValidTarget] {
+        &self.targets
+    }
+}
+
 pub fn parse_target_list(
     target_list: &str,
     field_aliases: &HashMap<&str, &str>,
     ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
-) -> Result<Vec<ValidTarget>, Vec<TargetErrorSet>> {
+) -> Result<TargetList, Vec<TargetErrorSet>> {
     const N_GENES: usize = 500;
 
     let mut reader = read_csv_trimmed(target_list);
@@ -35,6 +48,7 @@ pub fn parse_target_list(
     })?;
 
     let fieldnames = rename_fields(headers, field_aliases);
+    let custom_fieldnames = extract_custom_fieldnames(&fieldnames);
 
     let mut valid_targets = Vec::with_capacity(N_GENES);
     let mut seen_genes = HashSet::with_capacity(N_GENES);
@@ -83,7 +97,10 @@ pub fn parse_target_list(
         return Err(errors);
     }
 
-    Ok(valid_targets)
+    Ok(TargetList {
+        targets: valid_targets,
+        custom_fieldnames,
+    })
 }
 
 #[cfg(test)]
@@ -110,7 +127,8 @@ mod tests {
             &HashMap::new(),
             xenium_v1_human_ensembl_id_to_gene,
         )
-        .unwrap();
+        .unwrap()
+        .targets;
 
         let gene_names: Vec<_> = targets
             .iter()
