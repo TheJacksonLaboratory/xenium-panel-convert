@@ -110,7 +110,7 @@ GENES = [
 
 def main():
     # Adapted from https://anndata.readthedocs.io/en/latest/tutorials/notebooks/getting-started.html
-    ensembl_ids, gene_names = zip(*GENES)
+    ensembl_ids, gene_symbols = zip(*GENES)
     n_cells = 10
 
     rng = np.random.default_rng()
@@ -134,7 +134,7 @@ def main():
         unannotated_cell = list(adata.obs["annotation"])[:-1] + [None]
         adata.obs["annotation_missing"] = unannotated_cell
 
-        adata.var_names = list(gene_names)
+        adata.var_names = list(gene_symbols)
         adata.var["ensembl_id"] = list(ensembl_ids)
         adata.var["feature_types"] = ["Gene Expression"] * len(adata.var)
 
@@ -147,7 +147,7 @@ def main():
     tenx_adata.obs["annotation"] = [
         f"group_{i % 2}" for i in range(len(tenx_adata.obs.index))
     ]
-    tenx_adata.var["gene_name"] = tenx_adata.var_names
+    tenx_adata.var["gene_symbol"] = tenx_adata.var_names
 
     sc.write(f"{filename}ad", tenx_adata)
 

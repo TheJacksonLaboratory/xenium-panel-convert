@@ -60,7 +60,7 @@ enum Command {
     /// Designer.
     ///
     /// The target-list must be a CSV-file with the header:
-    /// "ensembl_id,gene_name,group,priority,custom". Any additional fields will
+    /// "ensembl_id,gene_symbol,group,priority,custom". Any additional fields will
     /// be propagated untouched in the output file.
     ///
     /// A "cleaned" version of the file will be saved at

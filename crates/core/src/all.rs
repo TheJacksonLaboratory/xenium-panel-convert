@@ -83,18 +83,18 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
         .gene_map(reference_dataset.features().len())
         .expect("if we have a PseudoAnndata, we know its features are exactly the transcriptome");
 
-    let gene_name_from_transcriptome = gene_map.get(gene.ensembl_id.as_str()).ok_or(
+    let gene_symbol_from_transcriptome = gene_map.get(gene.ensembl_id.as_str()).ok_or(
         TargetListReferenceDatasetCompatibilityWarning::TargetNotInReferenceDataset {
             gene,
             transcriptome: reference_dataset_transcriptome,
         },
     )?;
 
-    if gene.gene_name != *gene_name_from_transcriptome {
+    if gene.gene_symbol != *gene_symbol_from_transcriptome {
         return Err(
             TargetListReferenceDatasetCompatibilityWarning::GeneNameMismatch {
                 gene_in_target_list: gene,
-                gene_name_in_reference_dataset: gene_name_from_transcriptome,
+                gene_symbol_in_reference_dataset: gene_symbol_from_transcriptome,
             },
         );
     }
@@ -113,14 +113,14 @@ pub enum TargetListReferenceDatasetCompatibilityWarning {
         target_list_species: Species,
         reference_dataset_transcriptome: TranscriptomeName,
     },
-    #[error("{} ({}) is not in the reference dataset, whose transcriptome is {transcriptome}", gene.gene_name, gene.ensembl_id)]
+    #[error("{} ({}) is not in the reference dataset, whose transcriptome is {transcriptome}", gene.gene_symbol, gene.ensembl_id)]
     TargetNotInReferenceDataset {
         gene: ValidGene,
         transcriptome: TranscriptomeName,
     },
-    #[error("{} is called {} in the target-list, but it is called {gene_name_in_reference_dataset} in the reference dataset - this is likely because the reference-dataset was aligned against GRCh38-2024-A or GRCm39-2024-A - add a new column to .var in the reference dataset with gene names from the 2020-A version of the transcriptome", gene_in_target_list.ensembl_id, gene_in_target_list.gene_name)]
+    #[error("{} is called {} in the target-list, but it is called {gene_symbol_in_reference_dataset} in the reference dataset - this is likely because the reference-dataset was aligned against GRCh38-2024-A or GRCm39-2024-A - add a new column to .var in the reference dataset with gene names from the 2020-A version of the transcriptome", gene_in_target_list.ensembl_id, gene_in_target_list.gene_symbol)]
     GeneNameMismatch {
         gene_in_target_list: ValidGene,
-        gene_name_in_reference_dataset: &'static str,
+        gene_symbol_in_reference_dataset: &'static str,
     },
 }

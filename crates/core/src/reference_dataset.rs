@@ -8,7 +8,9 @@ use serde::Serialize;
 use crate::{
     error::collect_error,
     reference_dataset::{
-        columns::{CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneNameCol},
+        columns::{
+            CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneSymbolCol,
+        },
         error::{
             ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
         },
@@ -36,7 +38,7 @@ pub fn read_reference_dataset(
     cell_barcode_col: &CellBarcodeCol,
     cell_annotation_col: &CellAnnotationCol,
     ensembl_id_col: &EnsemblIdCol,
-    gene_name_col: &GeneNameCol,
+    gene_symbol_col: &GeneSymbolCol,
     transcriptome: Option<Transcriptome>,
 ) -> Result<PseudoAnndata, ReadReferenceDatasetErrorSet> {
     let mut errors = Vec::new();
@@ -68,7 +70,7 @@ pub fn read_reference_dataset(
     );
 
     let features = collect_error(
-        read_features_from_h5ad(&file, ensembl_id_col, gene_name_col, transcriptome),
+        read_features_from_h5ad(&file, ensembl_id_col, gene_symbol_col, transcriptome),
         &mut errors,
     );
 
@@ -173,7 +175,7 @@ fn write_matrix(
     .map_err(write_err)?;
     write_dataset_to_h5_group(&matrix_group, "features/id", features.ensembl_ids())
         .map_err(write_err)?;
-    write_dataset_to_h5_group(&matrix_group, "features/name", features.gene_names())
+    write_dataset_to_h5_group(&matrix_group, "features/name", features.gene_symbols())
         .map_err(write_err)?;
 
     Ok(())
@@ -201,7 +203,7 @@ mod tests {
         reference_dataset::{
             Barcode,
             columns::{
-                CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneNameCol,
+                CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneSymbolCol,
             },
             error::{
                 ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
@@ -225,7 +227,7 @@ mod tests {
             &CellBarcodeCol("barcode".to_owned()),
             &CellAnnotationCol("annotation".to_owned()),
             &EnsemblIdCol("gene_ids".to_owned()),
-            &GeneNameCol("gene_name".to_owned()),
+            &GeneSymbolCol("gene_symbol".to_owned()),
             Transcriptome::new(TranscriptomeName::Mm102020A, false),
         )
         .unwrap()
@@ -258,7 +260,7 @@ mod tests {
             &CellBarcodeCol("foo".to_owned()),
             &CellAnnotationCol("bar".to_owned()),
             &EnsemblIdCol("baz".to_owned()),
-            &GeneNameCol("qux".to_owned()),
+            &GeneSymbolCol("qux".to_owned()),
             Transcriptome::new(TranscriptomeName::Grch382020A, false),
         )
         .unwrap_err();
@@ -338,7 +340,7 @@ mod tests {
         );
         assert_eq!(
             read_test_1d_dataset::<GeneName>(&written, "matrix/features/name").unwrap(),
-            scanpy_features.gene_names()
+            scanpy_features.gene_symbols()
         );
         assert_eq!(
             read_test_1d_dataset::<FixedAscii<32>>(&written, "matrix/features/feature_type")
@@ -452,6 +454,6 @@ mod tests {
 
         let original_feature_names =
             read_test_1d_dataset::<GeneName>(&original_h5, "matrix/features/name").unwrap();
-        assert_eq!(original_feature_names, read_features.gene_names());
+        assert_eq!(original_feature_names, read_features.gene_symbols());
     }
 }

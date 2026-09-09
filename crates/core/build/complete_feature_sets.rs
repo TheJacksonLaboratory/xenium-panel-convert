@@ -68,9 +68,9 @@ fn write_3p_gene_lists() -> anyhow::Result<()> {
     for (h5_path, expected_n_genes, map_name, map_path) in
         [grch38_2020_a, grch38_2024_a, mm10_2020_a, grcm39_2024_a]
     {
-        let (ensembl_ids, gene_names) = read_transcriptome_from_h5(h5_path)?;
+        let (ensembl_ids, gene_symbols) = read_transcriptome_from_h5(h5_path)?;
 
-        let map = construct_map(ensembl_ids.iter().zip(&gene_names), expected_n_genes);
+        let map = construct_map(ensembl_ids.iter().zip(&gene_symbols), expected_n_genes);
 
         write_map_to_file(&create_map_path(map_path), map_name, &map)?;
     }
@@ -174,11 +174,11 @@ fn read_transcriptome_from_h5(file_path: &str) -> anyhow::Result<(Vec<EnsemblId>
     let ensembl_ids = file
         .dataset("matrix/features/id")
         .and_then(|ds| ds.read_raw())?;
-    let gene_names = file
+    let gene_symbols = file
         .dataset("matrix/features/name")
         .and_then(|ds| ds.read_raw())?;
 
-    Ok((ensembl_ids, gene_names))
+    Ok((ensembl_ids, gene_symbols))
 }
 
 fn construct_map<'a, EnsemblId, GeneName>(

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId};
+use chemistry::{EnsemblId, GeneSymbol, UnvalidatedEnsemblId};
 
 use crate::{
     error::Hinted,
@@ -33,7 +33,7 @@ impl TargetList {
 pub fn parse_target_list(
     target_list: &str,
     field_aliases: &HashMap<&str, &str>,
-    ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)> + Copy,
+    ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> + Copy,
 ) -> Result<TargetList, Vec<TargetErrorSet>> {
     const N_GENES: usize = 500;
 
@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn valid_target_list() {
-        let gene_list = "ensembl_id,gene_name,group,priority\nENSG00000141510,TP53,group0,\
+        let gene_list = "ensembl_id,gene_symbol,group,priority\nENSG00000141510,TP53,group0,\
                          must_have\nENSG00000116678,LEPR,group0,desired\nENSG00000120802,TMPO,\
                          group1,backup";
 
@@ -130,15 +130,15 @@ mod tests {
         .unwrap()
         .targets;
 
-        let gene_names: Vec<_> = targets
+        let gene_symbols: Vec<_> = targets
             .iter()
             .map(|target| {
-                let (_, gene_name) = target.gene().as_strs();
-                gene_name.unwrap()
+                let (_, gene_symbol) = target.gene().as_strs();
+                gene_symbol.unwrap()
             })
             .collect();
         assert_eq!(
-            gene_names,
+            gene_symbols,
             ["TP53", "LEPR", "TMPO"],
             "targets were not returned in the order they were submitted"
         );
@@ -151,7 +151,7 @@ mod tests {
 
         // Two idential rows. We have to split this into 3 lines because cargo +nightly
         // fmt destroys it otherwise
-        let header = "ensembl_id,gene_name,group,priority";
+        let header = "ensembl_id,gene_symbol,group,priority";
         let row = format!("{ensembl_id_str},TP53,group0,must_have");
         let gene_list = format!("{header}\n{row}\n{row}");
 
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn error_reports_correct_file_line_number() {
-        let gene_list = "ensembl_id,gene_name,group,priority\nid,gene,0,must_have";
+        let gene_list = "ensembl_id,gene_symbol,group,priority\nid,gene,0,must_have";
 
         let errors = parse_target_list(
             gene_list,
