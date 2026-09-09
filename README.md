@@ -11,4 +11,4 @@ Run `xp-convert --help` for more information.
 
 ## Installation
 
-Install the latest version from the [releases page](https://github.com/demhadais/xenium-panel-convert/releases). The installer script will also install a sibling binary called `xenium-panel-convert-update` - run that to upgrade to the latest version.
+Install the latest version from the [releases page](https://github.com/TheJacksonLaboratory/xenium-panel-convert/releases). The installer script will also install a sibling binary called `xenium-panel-convert-update` - run that to upgrade to the latest version.
