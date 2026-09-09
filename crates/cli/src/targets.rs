@@ -74,7 +74,7 @@ pub(super) fn convert_target_list(
 #[derive(Debug, Clone, clap::Args)]
 pub(super) struct TargetListCliOptions {
     /// A path to a CSV-formatted file with the header
-    /// "ensembl_id,gene_name,group,priority", where "priority" is one of
+    /// "ensembl_id,gene_symbol,group,priority", where "priority" is one of
     /// "must_have", "desired", or "backup".
     #[clap(long, short)]
     targets_path: Utf8PathBuf,

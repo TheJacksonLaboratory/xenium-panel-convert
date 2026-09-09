@@ -47,22 +47,22 @@ impl Default for EnsemblIdCol {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct GeneNameCol(pub String);
+pub struct GeneSymbolCol(pub String);
 
-impl GeneNameCol {
+impl GeneSymbolCol {
     #[must_use]
     pub(super) fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-impl Display for GeneNameCol {
+impl Display for GeneSymbolCol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl Default for GeneNameCol {
+impl Default for GeneSymbolCol {
     fn default() -> Self {
         Self(String::from("_index"))
     }

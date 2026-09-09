@@ -3,7 +3,7 @@ use serde::Serialize;
 use crate::{
     error::Hinted,
     target_list::{
-        chemistry::{EnsemblId, GeneName},
+        chemistry::{EnsemblId, GeneSymbol},
         target::{UnvalidatedTarget, ValidGene},
     },
 };
@@ -36,16 +36,16 @@ pub enum TargetError {
     NoEnsemblId,
     #[error(
         "no gene name was provided - add one (based on the Ensembl ID, it is probably \
-         {probable_gene_name})"
+         {probable_gene_symbol})"
     )]
-    NoGeneName { probable_gene_name: GeneName },
+    NoGeneName { probable_gene_symbol: GeneSymbol },
     #[error(
-        "the gene name corresponding to the Ensembl ID {ensembl_id} is {correct_gene_name} - \
+        "the gene name corresponding to the Ensembl ID {ensembl_id} is {correct_gene_symbol} - \
          change either the Ensembl ID or the gene name so they match"
     )]
     EnsemblIdGeneNameMismatch {
         ensembl_id: EnsemblId,
-        correct_gene_name: GeneName,
+        correct_gene_symbol: GeneSymbol,
     },
     #[error(
         "this gene is not available for the chosen chemistry - see the 10x Genomics allowed genes at: https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-gene-list#yesprobe"

@@ -8,17 +8,18 @@ use crate::{
     error::collect_error,
     target_list::{
         TargetError, TargetList,
-        chemistry::{EnsemblId, GeneName, UnvalidatedEnsemblId, UnvalidatedGeneName},
+        chemistry::{EnsemblId, GeneSymbol, UnvalidatedEnsemblId, UnvalidatedGeneName},
     },
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub struct UnvalidatedGene {
     pub ensembl_id: Option<UnvalidatedEnsemblId>,
-    pub gene_name: Option<UnvalidatedGeneName>,
+    pub gene_symbol: Option<UnvalidatedGeneName>,
 }
 
-pub(super) const FIELDNAMES: [&str; 5] = ["ensembl_id", "gene_name", "group", "priority", "custom"];
+pub(super) const FIELDNAMES: [&str; 5] =
+    ["ensembl_id", "gene_symbol", "group", "priority", "custom"];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct UnvalidatedTarget {
@@ -42,24 +43,24 @@ impl UnvalidatedTarget {
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq, Hash)]
 pub struct ValidGene {
     pub(crate) ensembl_id: EnsemblId,
-    pub(crate) gene_name: GeneName,
+    pub(crate) gene_symbol: GeneSymbol,
 }
 
 impl ValidGene {
     fn from_unvalidated(
         UnvalidatedGene {
             ensembl_id,
-            gene_name: submitted_gene_name,
+            gene_symbol: submitted_gene_symbol,
         }: &UnvalidatedGene,
-        ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
+        ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)>,
     ) -> Result<Self, TargetError> {
         let Some(ensembl_id) = ensembl_id else {
             return Err(TargetError::NoEnsemblId);
         };
 
-        let map_valid_gene = |(ensembl_id, gene_name)| Self {
+        let map_valid_gene = |(ensembl_id, gene_symbol)| Self {
             ensembl_id,
-            gene_name,
+            gene_symbol,
         };
 
         if !ensembl_id.is_versionless_and_uppercase() {
@@ -73,18 +74,18 @@ impl ValidGene {
             .map(map_valid_gene)
             .ok_or(TargetError::GeneNotFound)?;
 
-        let Some(submitted_gene_name) = submitted_gene_name else {
+        let Some(submitted_gene_symbol) = submitted_gene_symbol else {
             return Err(TargetError::NoGeneName {
-                probable_gene_name: valid_gene.gene_name,
+                probable_gene_symbol: valid_gene.gene_symbol,
             });
         };
 
-        if *submitted_gene_name == valid_gene.gene_name {
+        if *submitted_gene_symbol == valid_gene.gene_symbol {
             Ok(valid_gene)
         } else {
             Err(TargetError::EnsemblIdGeneNameMismatch {
                 ensembl_id: valid_gene.ensembl_id,
-                correct_gene_name: valid_gene.gene_name,
+                correct_gene_symbol: valid_gene.gene_symbol,
             })
         }
     }
@@ -121,11 +122,11 @@ impl TargetGene {
         match self {
             Self::Standard(gene) => (
                 Some(gene.ensembl_id.as_str()),
-                Some(gene.gene_name.as_str()),
+                Some(gene.gene_symbol.as_str()),
             ),
             Self::Custom(gene) => (
                 gene.ensembl_id.as_ref().map(UnvalidatedEnsemblId::as_str),
-                gene.gene_name.as_ref().map(UnvalidatedGeneName::as_str),
+                gene.gene_symbol.as_ref().map(UnvalidatedGeneName::as_str),
             ),
         }
     }
@@ -167,7 +168,7 @@ impl ValidTarget {
             custom,
             other_fields,
         }: &UnvalidatedTarget,
-        ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneName)>,
+        ensembl_id_to_gene: impl Fn(&UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)>,
     ) -> Result<Self, Vec<TargetError>> {
         let mut errors = Vec::new();
 
@@ -206,7 +207,7 @@ impl ValidTarget {
 #[derive(Debug, Clone, Serialize)]
 pub struct ValidTargetCsvRow<'a> {
     ensembl_id: Option<&'a str>,
-    gene_name: Option<&'a str>,
+    gene_symbol: Option<&'a str>,
     group: &'a str,
     priority: Priority,
     custom: bool,
@@ -223,7 +224,7 @@ impl<'a> ValidTargetCsvRow<'a> {
         }: &'a ValidTarget,
         custom_fieldnames: &[String],
     ) -> Self {
-        let (ensembl_id, gene_name) = gene.as_strs();
+        let (ensembl_id, gene_symbol) = gene.as_strs();
 
         let other_values = custom_fieldnames
             .iter()
@@ -240,7 +241,7 @@ impl<'a> ValidTargetCsvRow<'a> {
 
         Self {
             ensembl_id,
-            gene_name,
+            gene_symbol,
             group,
             priority: *priority,
             custom: gene.is_custom(),
@@ -357,7 +358,7 @@ mod tests {
         let target = UnvalidatedTarget {
             gene: UnvalidatedGene {
                 ensembl_id: Some(tp53_ensembl_id()),
-                gene_name: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+                gene_symbol: Some(UnvalidatedGeneName::new("TP53".to_owned())),
             },
             group: Some("Group0".to_owned()),
             priority: Some("must_have".to_owned()),
@@ -376,7 +377,7 @@ mod tests {
         let target = UnvalidatedTarget {
             gene: UnvalidatedGene {
                 ensembl_id: None,
-                gene_name: None,
+                gene_symbol: None,
             },
             group: None,
             priority: Some("urgent".to_owned()),
@@ -407,7 +408,7 @@ mod tests {
         let err = ValidGene::from_unvalidated(
             &UnvalidatedGene {
                 ensembl_id: None,
-                gene_name: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+                gene_symbol: Some(UnvalidatedGeneName::new("TP53".to_owned())),
             },
             xenium_v1_human_ensembl_id_to_gene,
         )
@@ -421,7 +422,7 @@ mod tests {
         ValidGene::from_unvalidated(
             &UnvalidatedGene {
                 ensembl_id: Some(tp53_ensembl_id()),
-                gene_name: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+                gene_symbol: Some(UnvalidatedGeneName::new("TP53".to_owned())),
             },
             xenium_v1_human_ensembl_id_to_gene,
         )
@@ -442,7 +443,7 @@ mod tests {
             UnvalidatedTarget {
                 gene: UnvalidatedGene {
                     ensembl_id: Some(UnvalidatedEnsemblId::new("id".to_owned())),
-                    gene_name: None
+                    gene_symbol: None
                 },
                 group: None,
                 priority: None,
@@ -455,27 +456,27 @@ mod tests {
     }
 
     #[test]
-    fn ensembl_id_gene_name_mismatch() {
+    fn ensembl_id_gene_symbol_mismatch() {
         let ensembl_id = tp53_ensembl_id();
-        let gene_name = UnvalidatedGeneName::new(String::new());
+        let gene_symbol = UnvalidatedGeneName::new(String::new());
 
         let err = ValidGene::from_unvalidated(
             &UnvalidatedGene {
                 ensembl_id: Some(ensembl_id.clone()),
-                gene_name: Some(gene_name.clone()),
+                gene_symbol: Some(gene_symbol.clone()),
             },
             xenium_v1_human_ensembl_id_to_gene,
         )
         .unwrap_err();
 
-        let (correct_ensembl_id, correct_gene_name) =
+        let (correct_ensembl_id, correct_gene_symbol) =
             xenium_v1_human_ensembl_id_to_gene(&ensembl_id).unwrap();
 
         assert_eq!(
             err,
             TargetError::EnsemblIdGeneNameMismatch {
                 ensembl_id: correct_ensembl_id,
-                correct_gene_name
+                correct_gene_symbol
             },
             "failed to create Ensembl ID-gene name mismatch error"
         );
@@ -484,7 +485,7 @@ mod tests {
     #[test]
     fn versioned_or_lowercase_ensembl_id_suggests_correct_gene() {
         let ensembl_id = tp53_ensembl_id();
-        let (correct_ensembl_id, correct_gene_name) =
+        let (correct_ensembl_id, correct_gene_symbol) =
             xenium_v1_human_ensembl_id_to_gene(&ensembl_id).unwrap();
 
         let versioned =
@@ -493,7 +494,7 @@ mod tests {
         let err = ValidGene::from_unvalidated(
             &UnvalidatedGene {
                 ensembl_id: Some(versioned),
-                gene_name: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+                gene_symbol: Some(UnvalidatedGeneName::new("TP53".to_owned())),
             },
             xenium_v1_human_ensembl_id_to_gene,
         )
@@ -504,21 +505,21 @@ mod tests {
             TargetError::VersionedOrLowercaseEnsemblId {
                 correct_gene: Some(ValidGene {
                     ensembl_id: correct_ensembl_id,
-                    gene_name: correct_gene_name,
+                    gene_symbol: correct_gene_symbol,
                 }),
             }
         );
     }
 
     #[test]
-    fn missing_gene_name_suggests_probable_name() {
+    fn missing_gene_symbol_suggests_probable_name() {
         let ensembl_id = tp53_ensembl_id();
-        let (_, correct_gene_name) = xenium_v1_human_ensembl_id_to_gene(&ensembl_id).unwrap();
+        let (_, correct_gene_symbol) = xenium_v1_human_ensembl_id_to_gene(&ensembl_id).unwrap();
 
         let err = ValidGene::from_unvalidated(
             &UnvalidatedGene {
                 ensembl_id: Some(ensembl_id),
-                gene_name: None,
+                gene_symbol: None,
             },
             xenium_v1_human_ensembl_id_to_gene,
         )
@@ -527,7 +528,7 @@ mod tests {
         assert_eq!(
             err,
             TargetError::NoGeneName {
-                probable_gene_name: correct_gene_name
+                probable_gene_symbol: correct_gene_symbol
             }
         );
     }
@@ -536,7 +537,7 @@ mod tests {
     fn valid_target_serializes() {
         let row = ValidTargetCsvRow {
             ensembl_id: Some("some_ensembl_id"),
-            gene_name: Some("some_gene_name"),
+            gene_symbol: Some("some_gene_symbol"),
             group: "some_group",
             priority: Priority::MustHave,
             custom: true,
@@ -550,7 +551,7 @@ mod tests {
 
         let data = serialize_csv(&csv);
 
-        assert_eq!(data, b"ensembl_id,gene_name,group,priority,custom,field\nsome_ensembl_id,some_gene_name,some_group,must_have,true,value\n");
+        assert_eq!(data, b"ensembl_id,gene_symbol,group,priority,custom,field\nsome_ensembl_id,some_gene_symbol,some_group,must_have,true,value\n");
     }
 
     #[test]
@@ -558,7 +559,7 @@ mod tests {
         let ensembl_id = tp53_ensembl_id();
         let ensembl_id = ensembl_id.as_str();
         let target_list = format!(
-            "ensembl_id,str_field,gene_name,group,priority,number_field\n{ensembl_id},str_value,\
+            "ensembl_id,str_field,gene_symbol,group,priority,number_field\n{ensembl_id},str_value,\
              TP53,group0,must_have,0"
         );
 
@@ -577,7 +578,7 @@ mod tests {
         let data = serialize_csv(&ValidTargetCsv::from_target_list(&target_list));
 
         let expected = format!(
-            "ensembl_id,gene_name,group,priority,custom,str_field,number_field\n{ensembl_id},TP53,\
+            "ensembl_id,gene_symbol,group,priority,custom,str_field,number_field\n{ensembl_id},TP53,\
              group0,must_have,false,str_value,0\n"
         );
         assert_eq!(data, expected.as_bytes());

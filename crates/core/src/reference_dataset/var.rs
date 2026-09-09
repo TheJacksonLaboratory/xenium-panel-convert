@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::{
     error::collect_error,
     reference_dataset::{
-        columns::{EnsemblIdCol, GeneNameCol},
+        columns::{EnsemblIdCol, GeneSymbolCol},
         h5_util::{ReadH5FieldError, read_1d_string_dataset, to_ascii},
         transcriptome::Transcriptome,
     },
@@ -19,14 +19,14 @@ use crate::{
 pub(super) fn read_features_from_h5ad(
     file: &File,
     ensembl_id_col: &EnsemblIdCol,
-    gene_name_col: &GeneNameCol,
+    gene_symbol_col: &GeneSymbolCol,
     transcriptome: Option<Transcriptome>,
 ) -> Result<Features, VarError> {
     let mut errors = Vec::new();
 
-    let [Some(ensembl_ids), Some(gene_names), Some(feature_types)] = [
+    let [Some(ensembl_ids), Some(gene_symbols), Some(feature_types)] = [
         ensembl_id_col.as_str(),
-        gene_name_col.as_str(),
+        gene_symbol_col.as_str(),
         "feature_types",
     ]
     .map(|column| read_1d_string_dataset(file, &format!("var/{column}")))
@@ -34,11 +34,11 @@ pub(super) fn read_features_from_h5ad(
         return Err(VarError::InvalidH5Fields { errors });
     };
 
-    check_feature_array_lens(&ensembl_ids, &gene_names, &feature_types)?;
+    check_feature_array_lens(&ensembl_ids, &gene_symbols, &feature_types)?;
 
     let features = Features {
         ensembl_ids: ensembl_ids.mapv(|s| to_ascii(&s)),
-        gene_names: gene_names.mapv(|s| to_ascii(&s)),
+        gene_symbols: gene_symbols.mapv(|s| to_ascii(&s)),
         feature_types: feature_types.mapv(|s| to_ascii(&s)),
     };
 
@@ -57,20 +57,20 @@ pub(super) fn read_features_from_h5ad(
         }
     })?;
 
-    validate_var_matches_transcriptome(&ensembl_ids, &gene_names, expected_genes)?;
+    validate_var_matches_transcriptome(&ensembl_ids, &gene_symbols, expected_genes)?;
 
     Ok(features)
 }
 
 fn check_feature_array_lens(
     ensembl_ids: &Array1<VarLenUnicode>,
-    gene_names: &Array1<VarLenUnicode>,
+    gene_symbols: &Array1<VarLenUnicode>,
     feature_types: &Array1<VarLenUnicode>,
 ) -> Result<(), VarError> {
-    if ensembl_ids.len() != gene_names.len() || ensembl_ids.len() != feature_types.len() {
+    if ensembl_ids.len() != gene_symbols.len() || ensembl_ids.len() != feature_types.len() {
         return Err(VarError::InvalidShapes {
             ensembl_ids_len: ensembl_ids.len(),
-            gene_names_len: gene_names.len(),
+            gene_symbols_len: gene_symbols.len(),
             feature_types_len: feature_types.len(),
         });
     }
@@ -80,23 +80,23 @@ fn check_feature_array_lens(
 
 fn validate_var_matches_transcriptome(
     ensembl_ids: &Array1<VarLenUnicode>,
-    gene_names: &Array1<VarLenUnicode>,
+    gene_symbols: &Array1<VarLenUnicode>,
     expected_genes: &phf::Map<&str, &str>,
 ) -> Result<(), VarError> {
     let mut errors = Vec::new();
     let mut seen = HashSet::with_capacity(ensembl_ids.len());
 
-    for (id, name) in ensembl_ids.iter().zip(gene_names) {
+    for (id, name) in ensembl_ids.iter().zip(gene_symbols) {
         if !seen.insert(id) {
             errors.push(VarRowError::DuplicateGene {
                 ensembl_id: id.to_string(),
-                gene_name: name.to_string(),
+                gene_symbol: name.to_string(),
             });
 
             continue;
         }
 
-        let Some(expected_gene_name) = expected_genes.get(id) else {
+        let Some(expected_gene_symbol) = expected_genes.get(id) else {
             errors.push(VarRowError::UnrecognizedEnsemblId {
                 ensembl_id: id.to_string(),
             });
@@ -104,11 +104,11 @@ fn validate_var_matches_transcriptome(
             continue;
         };
 
-        if name != *expected_gene_name {
+        if name != *expected_gene_symbol {
             errors.push(VarRowError::EnsemblIdGeneNameMismatch {
                 ensembl_id: id.to_string(),
-                expected_gene_name,
-                found_gene_name: name.to_string(),
+                expected_gene_symbol,
+                found_gene_symbol: name.to_string(),
             });
         }
     }
@@ -149,7 +149,7 @@ type FeatureTypes = Array1<FeatureType>;
 #[derive(Debug, PartialEq)]
 pub(crate) struct Features {
     ensembl_ids: EnsemblIds,
-    gene_names: GeneNames,
+    gene_symbols: GeneNames,
     feature_types: FeatureTypes,
 }
 
@@ -158,8 +158,8 @@ impl Features {
         &self.ensembl_ids
     }
 
-    pub(super) fn gene_names(&self) -> &GeneNames {
-        &self.gene_names
+    pub(super) fn gene_symbols(&self) -> &GeneNames {
+        &self.gene_symbols
     }
 
     pub(super) fn feature_types(&self) -> &FeatureTypes {
@@ -188,13 +188,13 @@ pub enum VarError {
         n_found_genes: usize,
     },
     #[error(
-        ".var has {ensembl_ids_len} Ensembl IDs, {gene_names_len} gene names and \
+        ".var has {ensembl_ids_len} Ensembl IDs, {gene_symbols_len} gene names and \
          {feature_types_len} feature types, but these must all be equal - regenerate the dataset \
          with scanpy"
     )]
     InvalidShapes {
         ensembl_ids_len: usize,
-        gene_names_len: usize,
+        gene_symbols_len: usize,
         feature_types_len: usize,
     },
     #[error(
@@ -210,13 +210,13 @@ pub enum VarError {
 pub enum VarRowError {
     DuplicateGene {
         ensembl_id: String,
-        gene_name: String,
+        gene_symbol: String,
     },
 
     EnsemblIdGeneNameMismatch {
         ensembl_id: String,
-        expected_gene_name: &'static str,
-        found_gene_name: String,
+        expected_gene_symbol: &'static str,
+        found_gene_symbol: String,
     },
     UnrecognizedEnsemblId {
         ensembl_id: String,
@@ -245,7 +245,7 @@ mod tests {
 
     use crate::{
         reference_dataset::{
-            columns::{EnsemblIdCol, GeneNameCol},
+            columns::{EnsemblIdCol, GeneSymbolCol},
             transcriptome::{Transcriptome, TranscriptomeName},
             var::{
                 VarError, VarRowError, read_features_from_h5ad, validate_var_matches_transcriptome,
@@ -256,12 +256,12 @@ mod tests {
 
     fn read_generated_features(
         ensembl_id_col: &str,
-        gene_name_col: &str,
+        gene_symbol_col: &str,
     ) -> Result<super::Features, VarError> {
         read_features_from_h5ad(
             &File::open("test-data/csr_adata.h5ad").unwrap(),
             &EnsemblIdCol(ensembl_id_col.to_owned()),
-            &GeneNameCol(gene_name_col.to_owned()),
+            &GeneSymbolCol(gene_symbol_col.to_owned()),
             Transcriptome::new(TranscriptomeName::Grch382020A, false),
         )
     }
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn filtered_genes_are_rejected() {
         // The generated datasets have 100 genes
-        let error = read_generated_features("ensembl_id", "gene_name").unwrap_err();
+        let error = read_generated_features("ensembl_id", "_index").unwrap_err();
 
         std::assert_matches!(
             error,
@@ -306,7 +306,7 @@ mod tests {
             ]
         };
 
-        let gene_names = unsafe {
+        let gene_symbols = unsafe {
             [
                 VarLenUnicode::from_str_unchecked("foo"),
                 VarLenUnicode::from_str_unchecked("bar"),
@@ -317,7 +317,7 @@ mod tests {
 
         let VarError::Genes { errors } = validate_var_matches_transcriptome(
             &arr1(&ensembl_ids),
-            &arr1(&gene_names),
+            &arr1(&gene_symbols),
             transcriptome.gene_map(transcriptome.n_genes().0).unwrap(),
         )
         .unwrap_err() else {

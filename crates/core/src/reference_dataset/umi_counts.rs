@@ -137,7 +137,6 @@ mod tests {
             "csr_adata",
             "csc_adata",
             "dense_adata",
-            "counts_layer_adata",
             "1k_mouse_kidney_CNIK_3pv3_filtered_feature_bc_matrix",
         ]
         .map(|fname| format!("test-data/{fname}.h5ad"))
@@ -148,28 +147,31 @@ mod tests {
         for f in files {
             let filename = f.filename();
 
-            let layer_name = if filename == "counts_layer_adata.h5ad" {
-                CountsLayerName::new("counts")
-            } else {
-                CountsLayerName::x()
-            };
+            let x_layer = CountsLayerName::x();
+            let counts_in_x = read_umi_counts_from_h5ad(&f, &x_layer).unwrap();
 
-            let counts = read_umi_counts_from_h5ad(&f, &layer_name).unwrap();
-
-            if filename.contains("adata") {
+            let is_synthetic_dataset = filename.contains("adata");
+            if is_synthetic_dataset {
                 assert_eq!(
-                    counts.data()[0],
+                    counts_in_x.data()[0],
                     10,
                     "first entry in UMI counts of {filename} != 10"
                 );
+
+                let counts_layer = CountsLayerName::new("counts");
+                let counts_in_layer = read_umi_counts_from_h5ad(&f, &counts_layer).unwrap();
+
+                assert_eq!(
+                    counts_in_x, counts_in_layer,
+                    "counts in .X and .layers['counts'] were not the same for {filename}"
+                );
             }
 
-            all_counts.push(counts);
+            all_counts.push(counts_in_x);
         }
 
         // We know the first 3 files are generated from the same data
         assert_eq!(all_counts[0], all_counts[1]);
         assert_eq!(all_counts[0], all_counts[2]);
-        assert_eq!(all_counts[0], all_counts[3]);
     }
 }

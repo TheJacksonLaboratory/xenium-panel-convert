@@ -80,7 +80,7 @@ mod tests {
 
     fn valid_targets() -> Vec<ValidTarget> {
         // Deliberately not in priority order
-        let target_list = "ensembl_id,gene_name,group,priority\nENSG00000116678,LEPR,group0,\
+        let target_list = "ensembl_id,gene_symbol,group,priority\nENSG00000116678,LEPR,group0,\
                            backup\nENSG00000141510,TP53,group0,must_have\nENSG00000120802,TMPO,\
                            group1,desired";
 
@@ -99,9 +99,9 @@ mod tests {
         let xpd_csv = XeniumPanelDesignerCsv::from_valid_targets(&targets);
         let genes = xpd_csv.rows();
 
-        let gene_names: Vec<_> = genes.iter().map(|g| g.gene.unwrap()).collect();
+        let gene_symbols: Vec<_> = genes.iter().map(|g| g.gene.unwrap()).collect();
         assert_eq!(
-            gene_names,
+            gene_symbols,
             ["TP53", "TMPO", "LEPR"],
             "genes should be ordered must_have, desired, backup"
         );

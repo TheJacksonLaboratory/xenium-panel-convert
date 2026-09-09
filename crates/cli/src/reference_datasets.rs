@@ -6,7 +6,7 @@ use std::{
 use anyhow::{anyhow, bail, ensure};
 use camino::{Utf8Path, Utf8PathBuf};
 use xenium_panel_convert_core::reference_dataset::{
-    columns::{CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneNameCol},
+    columns::{CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneSymbolCol},
     pseudo_anndata::PseudoAnndata,
     read_reference_dataset,
     transcriptome::{Transcriptome, TranscriptomeName},
@@ -29,7 +29,7 @@ pub(super) fn convert_reference_datasets<'a>(
             cell_barcode_col,
             cell_annotation_col,
             ensembl_id_col,
-            gene_name_col,
+            gene_symbol_col,
             transcriptome_name: _,
             flex: _,
             transcriptome,
@@ -44,7 +44,7 @@ pub(super) fn convert_reference_datasets<'a>(
             cell_barcode_col,
             cell_annotation_col,
             ensembl_id_col,
-            gene_name_col,
+            gene_symbol_col,
             *transcriptome,
         ) {
             Ok(ds) => {
@@ -78,7 +78,7 @@ pub(super) struct ReferenceDatasetSpec {
     cell_barcode_col: CellBarcodeCol,
     cell_annotation_col: CellAnnotationCol,
     ensembl_id_col: EnsemblIdCol,
-    gene_name_col: GeneNameCol,
+    gene_symbol_col: GeneSymbolCol,
     pub(super) transcriptome_name: TranscriptomeName,
     pub(super) flex: bool,
     transcriptome: Option<Transcriptome>,
@@ -121,7 +121,7 @@ impl ReferenceDatasetSpec {
             ("b", "barcode-col"),
             ("a", "annotation-col"),
             ("e", "ensembl-id-col"),
-            ("g", "gene-name-col"),
+            ("g", "gene-symbol-col"),
             ("t", "transcriptome"),
             ("f", "flex"),
             ("r", "rename"),
@@ -177,7 +177,7 @@ impl ReferenceDatasetSpec {
             cell_barcode_col: get_spec_value_default(&spec, "barcode-col", CellBarcodeCol),
             cell_annotation_col: get_spec_value(&spec, "annotation-col", CellAnnotationCol)?,
             ensembl_id_col: get_spec_value_default(&spec, "ensembl-id-col", EnsemblIdCol),
-            gene_name_col: get_spec_value_default(&spec, "gene-name-col", GeneNameCol),
+            gene_symbol_col: get_spec_value_default(&spec, "gene-symbol-col", GeneSymbolCol),
             transcriptome_name,
             flex,
             transcriptome: Transcriptome::new(transcriptome_name, flex),
@@ -213,7 +213,7 @@ transcriptome  | t | transcriptome the dataset was aligned against (required)
 counts-layer   | c | layer where counts are stored [default: X]
 barcode-col    | b | obs column containing cell barcodes [default: _index]
 ensembl-id-col | e | var column containing Ensembl IDs [default: gene_ids]
-gene-name-col  | g | var column containing gene names [default: _index]
+gene-symbol-col  | g | var column containing gene names [default: _index]
 flex           | f | 'true' if the dataset came from Flex (probe-based) chemistry, 'false' \
      otherwise [default: false]
 rename         | r | name of the converted dataset in <OUTPUT_DIR> [default: the filename of \
@@ -242,7 +242,7 @@ xp-convert references --output-dir output matrix.h5ad,a=cell_type,t=h2024,f=true
 mod tests {
     use camino::Utf8Path;
     use xenium_panel_convert_core::reference_dataset::{
-        columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneNameCol},
+        columns::{CellAnnotationCol, CellBarcodeCol, EnsemblIdCol, GeneSymbolCol},
         transcriptome::Transcriptome,
     };
 
@@ -262,7 +262,7 @@ mod tests {
             CellAnnotationCol("annotation".to_owned())
         );
         assert_eq!(spec.ensembl_id_col, EnsemblIdCol("id".to_owned()));
-        assert_eq!(spec.gene_name_col, GeneNameCol("name".to_owned()));
+        assert_eq!(spec.gene_symbol_col, GeneSymbolCol("name".to_owned()));
         assert_eq!(spec.rename.as_deref(), Some(Utf8Path::new("renamed")));
         std::assert_matches!(spec.transcriptome.unwrap(), Transcriptome::Flex2020A(_));
     }
@@ -276,7 +276,7 @@ mod tests {
 
         assert_eq!(spec.cell_barcode_col, CellBarcodeCol("_index".to_owned()));
         assert_eq!(spec.ensembl_id_col, EnsemblIdCol("gene_ids".to_owned()));
-        assert_eq!(spec.gene_name_col, GeneNameCol("_index".to_owned()));
+        assert_eq!(spec.gene_symbol_col, GeneSymbolCol("_index".to_owned()));
         assert_eq!(spec.rename, None);
     }
 
