@@ -28,7 +28,7 @@ pub struct UnvalidatedTarget {
     pub priority: Option<String>,
     pub custom: Option<String>,
     #[serde(flatten)]
-    pub other_fields: HashMap<String, String>,
+    pub other_fields: HashMap<String, serde_json::Value>,
 }
 
 impl UnvalidatedTarget {
@@ -147,7 +147,7 @@ pub struct ValidTarget {
     gene: TargetGene,
     group: String,
     priority: Priority,
-    other_fields: HashMap<String, String>,
+    other_fields: HashMap<String, serde_json::Value>,
 }
 
 impl ValidTarget {
@@ -210,7 +210,7 @@ pub struct ValidTargetCsvRow<'a> {
     group: &'a str,
     priority: Priority,
     custom: bool,
-    other_fields: Vec<&'a str>,
+    other_values: Vec<serde_json::Value>,
 }
 
 impl<'a> ValidTargetCsvRow<'a> {
@@ -225,7 +225,7 @@ impl<'a> ValidTargetCsvRow<'a> {
     ) -> Self {
         let (ensembl_id, gene_name) = gene.as_strs();
 
-        let other_fields = custom_fieldnames
+        let other_values = custom_fieldnames
             .iter()
             .map(|fieldname| {
                 // Unwrapping is fine because every record has every column of the header, and
@@ -233,8 +233,8 @@ impl<'a> ValidTargetCsvRow<'a> {
                 // `other_fields`
                 other_fields
                     .get(fieldname)
+                    .cloned()
                     .expect("custom field is missing from target")
-                    .as_str()
             })
             .collect();
 
@@ -244,7 +244,7 @@ impl<'a> ValidTargetCsvRow<'a> {
             group,
             priority: *priority,
             custom: gene.is_custom(),
-            other_fields,
+            other_values,
         }
     }
 }
@@ -447,7 +447,9 @@ mod tests {
                 group: None,
                 priority: None,
                 custom: None,
-                other_fields: HashMap::from([("field".to_owned(), "value2".to_owned())]),
+                other_fields: [("field".to_owned(), "value2".into())]
+                    .into_iter()
+                    .collect(),
             }
         );
     }
@@ -538,26 +540,25 @@ mod tests {
             group: "some_group",
             priority: Priority::MustHave,
             custom: true,
-            other_fields: vec!["hello"],
+            other_values: vec![serde_json::Value::from("value")],
         };
 
         let csv = ValidTargetCsv {
-            header: FIELDNAMES.into_iter().chain(["note"]).collect(),
+            header: FIELDNAMES.into_iter().chain(["field"]).collect(),
             rows: vec![row],
         };
 
         let data = serialize_csv(&csv);
 
-        assert_eq!(data, b"ensembl_id,gene_name,group,priority,custom,note\nsome_ensembl_id,some_gene_name,some_group,must_have,true,hello\n");
+        assert_eq!(data, b"ensembl_id,gene_name,group,priority,custom,field\nsome_ensembl_id,some_gene_name,some_group,must_have,true,value\n");
     }
 
     #[test]
-    fn custom_fields_are_propagated_in_input_order() {
+    fn custom_fields_are_propagated_in_input_order_with_correct_types() {
         let ensembl_id = tp53_ensembl_id();
         let ensembl_id = ensembl_id.as_str();
         let target_list = format!(
-            "ensembl_id,field1,gene_name,group,priority,field2\n{ensembl_id},value1,TP53,group0,\
-             must_have,value2"
+            "ensembl_id,str_field,gene_name,group,priority,number_field\n{ensembl_id},str_value,TP53,group0,must_have,0"
         );
 
         let target_list = parse_target_list(
@@ -567,11 +568,15 @@ mod tests {
         )
         .unwrap();
 
+        assert_eq!(
+            target_list.targets[0].other_fields["number_field"],
+            serde_json::Value::from(0)
+        );
+
         let data = serialize_csv(&ValidTargetCsv::from_target_list(&target_list));
 
         let expected = format!(
-            "ensembl_id,gene_name,group,priority,custom,field1,field2\n{ensembl_id},TP53,group0,\
-             must_have,false,value1,value2\n"
+            "ensembl_id,gene_name,group,priority,custom,str_field,number_field\n{ensembl_id},TP53,group0,must_have,false,str_value,0\n"
         );
         assert_eq!(data, expected.as_bytes());
     }

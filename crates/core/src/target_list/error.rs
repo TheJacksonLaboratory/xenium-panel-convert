@@ -22,7 +22,7 @@ pub struct TargetErrorSet {
 pub enum TargetError {
     #[error("the CSV could not be parsed ({reason}) - ensure it is properly formatted")]
     MalformedCsv { reason: String },
-    #[error("the field {fieldname} is missing - add it to the CSV")]
+    #[error("the field '{fieldname}' is missing - add it to the CSV")]
     MissingField { fieldname: &'static str },
     #[error("{value} is not a valid {field} - change it to one of {}", allowed.join(", "))]
     InvalidValue {
