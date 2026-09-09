@@ -9,7 +9,8 @@ use serde::Serialize;
 use strum::VariantNames;
 
 pub(super) fn read_container(file: &File, path: &str) -> Result<Container, ReadH5FieldError> {
-    // If we can read the field as a group, great, if not, try reading as a dataset
+    // If we can read the field as a group, great, if not, try reading as a
+    // dataset
     let container = match file.group(path) {
         Ok(g) => g.as_container().expect("a group should be a container"),
         Err(_) => file
