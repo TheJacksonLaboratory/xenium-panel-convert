@@ -164,10 +164,10 @@ fn create_map_path(filename: &str) -> PathBuf {
 // Human Ensembl IDs are 15 characters while mouse Ensembl IDs are 18
 type EnsemblId = FixedAscii<18>;
 
-// No gene name is likely to exceed 32 characters
-type GeneName = FixedAscii<32>;
+// No gene symbol is likely to exceed 32 characters
+type GeneSymbol = FixedAscii<32>;
 
-fn read_transcriptome_from_h5(file_path: &str) -> anyhow::Result<(Vec<EnsemblId>, Vec<GeneName>)> {
+fn read_transcriptome_from_h5(file_path: &str) -> anyhow::Result<(Vec<EnsemblId>, Vec<GeneSymbol>)> {
     let file = hdf5_metno::File::open(file_path)?;
 
     let ensembl_ids = file.dataset("matrix/features/id").and_then(|ds| ds.read_raw())?;
@@ -176,13 +176,13 @@ fn read_transcriptome_from_h5(file_path: &str) -> anyhow::Result<(Vec<EnsemblId>
     Ok((ensembl_ids, gene_symbols))
 }
 
-fn construct_map<'a, EnsemblId, GeneName>(
-    genes: impl Iterator<Item = (&'a EnsemblId, &'a GeneName)>,
+fn construct_map<'a, EnsemblId, GeneSymbol>(
+    genes: impl Iterator<Item = (&'a EnsemblId, &'a GeneSymbol)>,
     expected_n_genes: usize,
 ) -> phf_codegen::Map<'a, &'a str>
 where
     EnsemblId: AsRef<str> + 'a,
-    GeneName: Display + 'a,
+    GeneSymbol: Display + 'a,
 {
     let mut seen = HashSet::with_capacity(65_536);
     let mut map = phf_codegen::Map::new();

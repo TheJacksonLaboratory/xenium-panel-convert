@@ -92,9 +92,9 @@ impl UnvalidatedEnsemblId {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct UnvalidatedGeneName(String);
+pub struct UnvalidatedGeneSymbol(String);
 
-impl UnvalidatedGeneName {
+impl UnvalidatedGeneSymbol {
     #[cfg(test)]
     pub(super) fn new(gene_symbol: String) -> Self {
         Self(gene_symbol)
@@ -105,7 +105,7 @@ impl UnvalidatedGeneName {
     }
 }
 
-impl PartialEq<GeneSymbol> for UnvalidatedGeneName {
+impl PartialEq<GeneSymbol> for UnvalidatedGeneSymbol {
     fn eq(&self, other: &GeneSymbol) -> bool {
         self.0 == other.0
     }

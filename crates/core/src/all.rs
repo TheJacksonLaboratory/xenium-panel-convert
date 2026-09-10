@@ -89,7 +89,7 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
     )?;
 
     if gene.gene_symbol != *gene_symbol_from_transcriptome {
-        return Err(TargetListReferenceDatasetCompatibilityWarning::GeneNameMismatch {
+        return Err(TargetListReferenceDatasetCompatibilityWarning::GeneSymbolMismatch {
             gene_in_target_list: gene,
             gene_symbol_in_reference_dataset: gene_symbol_from_transcriptome,
         });
@@ -114,8 +114,8 @@ pub enum TargetListReferenceDatasetCompatibilityWarning {
         gene: ValidGene,
         transcriptome: TranscriptomeName,
     },
-    #[error("{} is called {} in the target-list, but it is called {gene_symbol_in_reference_dataset} in the reference dataset - this is likely because the reference-dataset was aligned against GRCh38-2024-A or GRCm39-2024-A - add a new column to .var in the reference dataset with gene names from the 2020-A version of the transcriptome", gene_in_target_list.ensembl_id, gene_in_target_list.gene_symbol)]
-    GeneNameMismatch {
+    #[error("{} is called {} in the target-list, but it is called {gene_symbol_in_reference_dataset} in the reference dataset - this is likely because the reference-dataset was aligned against GRCh38-2024-A or GRCm39-2024-A - add a new column to .var in the reference dataset with gene symbols from the 2020-A version of the transcriptome", gene_in_target_list.ensembl_id, gene_in_target_list.gene_symbol)]
+    GeneSymbolMismatch {
         gene_in_target_list: ValidGene,
         gene_symbol_in_reference_dataset: &'static str,
     },

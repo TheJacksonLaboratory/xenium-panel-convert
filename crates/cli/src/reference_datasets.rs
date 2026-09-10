@@ -186,15 +186,16 @@ const REFERENCE_DATASETS_LONG_HELP: &str =
 
 KEY              ALIAS  VALUE
 - - - - - - - - - - - - - - -
-path           | p | the h5ad file to convert (required)
-annotation-col | a | obs column containing cell annotations (required)
-transcriptome  | t | transcriptome the dataset was aligned against (required)
-counts-layer   | c | layer where counts are stored [default: X]
-barcode-col    | b | obs column containing cell barcodes [default: _index]
-ensembl-id-col | e | var column containing Ensembl IDs [default: gene_ids]
-gene-symbol-col  | g | var column containing gene names [default: _index]
-flex           | f | 'true' if the dataset came from Flex (probe-based) chemistry, 'false' otherwise [default: false]
-rename         | r | name of the converted dataset in <OUTPUT_DIR> [default: the filename of 'path', without its \
+path            | p | the h5ad file to convert (required)
+annotation-col  | a | obs column containing cell annotations (required)
+transcriptome   | t | transcriptome against which the dataset was aligned (required)
+counts-layer    | c | layer where counts are stored [default: X]
+barcode-col     | b | obs column containing cell barcodes [default: _index]
+ensembl-id-col  | e | var column containing Ensembl IDs [default: gene_ids]
+gene-symbol-col | g | var column containing gene symbols [default: _index]
+flex            | f | 'true' if the dataset was generated with the Flex (probe-based) chemistry, 'false' otherwise \
+     [default: false]
+rename          | r | name of the converted dataset in <OUTPUT_DIR> [default: the filename of 'path', without its \
      extension]
 
 

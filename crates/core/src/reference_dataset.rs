@@ -174,7 +174,7 @@ mod tests {
             pseudo_anndata::PseudoAnndata,
             read_reference_dataset,
             transcriptome::{Transcriptome, TranscriptomeName},
-            var::{EnsemblId, GeneName, VarError},
+            var::{EnsemblId, GeneSymbol, VarError},
             write_reference_dataset,
         },
     };
@@ -296,7 +296,7 @@ mod tests {
             scanpy_features.ensembl_ids()
         );
         assert_eq!(
-            read_test_1d_dataset::<GeneName>(&written, "matrix/features/name").unwrap(),
+            read_test_1d_dataset::<GeneSymbol>(&written, "matrix/features/name").unwrap(),
             scanpy_features.gene_symbols()
         );
         assert_eq!(
@@ -401,7 +401,7 @@ mod tests {
         let original_feature_ids = read_test_1d_dataset::<EnsemblId>(&original_h5, "matrix/features/id").unwrap();
         assert_eq!(original_feature_ids, read_features.ensembl_ids());
 
-        let original_feature_names = read_test_1d_dataset::<GeneName>(&original_h5, "matrix/features/name").unwrap();
+        let original_feature_names = read_test_1d_dataset::<GeneSymbol>(&original_h5, "matrix/features/name").unwrap();
         assert_eq!(original_feature_names, read_features.gene_symbols());
     }
 }

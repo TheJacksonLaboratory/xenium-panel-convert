@@ -8,14 +8,14 @@ use crate::{
     error::collect_error,
     target_list::{
         TargetError, TargetList,
-        chemistry::{EnsemblId, GeneSymbol, UnvalidatedEnsemblId, UnvalidatedGeneName},
+        chemistry::{EnsemblId, GeneSymbol, UnvalidatedEnsemblId, UnvalidatedGeneSymbol},
     },
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub struct UnvalidatedGene {
     pub ensembl_id: Option<UnvalidatedEnsemblId>,
-    pub gene_symbol: Option<UnvalidatedGeneName>,
+    pub gene_symbol: Option<UnvalidatedGeneSymbol>,
 }
 
 pub(super) const FIELDNAMES: [&str; 5] = ["ensembl_id", "gene_symbol", "group", "priority", "custom"];
@@ -73,7 +73,7 @@ impl ValidGene {
             .ok_or(TargetError::GeneNotFound)?;
 
         let Some(submitted_gene_symbol) = submitted_gene_symbol else {
-            return Err(TargetError::NoGeneName {
+            return Err(TargetError::NoGeneSymbol {
                 probable_gene_symbol: valid_gene.gene_symbol,
             });
         };
@@ -81,7 +81,7 @@ impl ValidGene {
         if *submitted_gene_symbol == valid_gene.gene_symbol {
             Ok(valid_gene)
         } else {
-            Err(TargetError::EnsemblIdGeneNameMismatch {
+            Err(TargetError::EnsemblIdGeneSymbolMismatch {
                 ensembl_id: valid_gene.ensembl_id,
                 correct_gene_symbol: valid_gene.gene_symbol,
             })
@@ -110,7 +110,7 @@ impl TargetGene {
             Self::Standard(gene) => (Some(gene.ensembl_id.as_str()), Some(gene.gene_symbol.as_str())),
             Self::Custom(gene) => (
                 gene.ensembl_id.as_ref().map(UnvalidatedEnsemblId::as_str),
-                gene.gene_symbol.as_ref().map(UnvalidatedGeneName::as_str),
+                gene.gene_symbol.as_ref().map(UnvalidatedGeneSymbol::as_str),
             ),
         }
     }
@@ -307,7 +307,7 @@ mod tests {
     use crate::target_list::{
         TargetError,
         chemistry::{
-            UnvalidatedEnsemblId, UnvalidatedGeneName, tests::tp53_ensembl_id, xenium_v1_human_ensembl_id_to_gene,
+            UnvalidatedEnsemblId, UnvalidatedGeneSymbol, tests::tp53_ensembl_id, xenium_v1_human_ensembl_id_to_gene,
         },
         csv_util::read_csv_trimmed,
         parse_target_list,
@@ -334,7 +334,7 @@ mod tests {
         let target = UnvalidatedTarget {
             gene: UnvalidatedGene {
                 ensembl_id: Some(tp53_ensembl_id()),
-                gene_symbol: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+                gene_symbol: Some(UnvalidatedGeneSymbol::new("TP53".to_owned())),
             },
             group: Some("Group0".to_owned()),
             priority: Some("must_have".to_owned()),
@@ -382,7 +382,7 @@ mod tests {
         let err = ValidGene::from_unvalidated(
             &UnvalidatedGene {
                 ensembl_id: None,
-                gene_symbol: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+                gene_symbol: Some(UnvalidatedGeneSymbol::new("TP53".to_owned())),
             },
             xenium_v1_human_ensembl_id_to_gene,
         )
@@ -396,7 +396,7 @@ mod tests {
         ValidGene::from_unvalidated(
             &UnvalidatedGene {
                 ensembl_id: Some(tp53_ensembl_id()),
-                gene_symbol: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+                gene_symbol: Some(UnvalidatedGeneSymbol::new("TP53".to_owned())),
             },
             xenium_v1_human_ensembl_id_to_gene,
         )
@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn ensembl_id_gene_symbol_mismatch() {
         let ensembl_id = tp53_ensembl_id();
-        let gene_symbol = UnvalidatedGeneName::new(String::new());
+        let gene_symbol = UnvalidatedGeneSymbol::new(String::new());
 
         let err = ValidGene::from_unvalidated(
             &UnvalidatedGene {
@@ -445,11 +445,11 @@ mod tests {
 
         assert_eq!(
             err,
-            TargetError::EnsemblIdGeneNameMismatch {
+            TargetError::EnsemblIdGeneSymbolMismatch {
                 ensembl_id: correct_ensembl_id,
                 correct_gene_symbol
             },
-            "failed to create Ensembl ID-gene name mismatch error"
+            "failed to create Ensembl ID-gene symbol mismatch error"
         );
     }
 
@@ -463,7 +463,7 @@ mod tests {
         let err = ValidGene::from_unvalidated(
             &UnvalidatedGene {
                 ensembl_id: Some(versioned),
-                gene_symbol: Some(UnvalidatedGeneName::new("TP53".to_owned())),
+                gene_symbol: Some(UnvalidatedGeneSymbol::new("TP53".to_owned())),
             },
             xenium_v1_human_ensembl_id_to_gene,
         )
@@ -496,7 +496,7 @@ mod tests {
 
         assert_eq!(
             err,
-            TargetError::NoGeneName {
+            TargetError::NoGeneSymbol {
                 probable_gene_symbol: correct_gene_symbol
             }
         );
