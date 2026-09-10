@@ -11,7 +11,8 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, thiserror::Error)]
+#[error("errors encountered reading reference dataset at {path}")]
 pub struct ReadReferenceDatasetErrorSet {
     pub path: Utf8PathBuf,
     pub errors: Vec<Hinted<ReadReferenceDatasetError>>,

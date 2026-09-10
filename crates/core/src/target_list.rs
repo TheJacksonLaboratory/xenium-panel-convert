@@ -117,8 +117,12 @@ mod tests {
 
     #[test]
     fn valid_target_list() {
-        let gene_list = "ensembl_id,gene_symbol,group,priority\nENSG00000141510,TP53,group0,must_have\\
-                         nENSG00000116678,LEPR,group0,desired\nENSG00000120802,TMPO,group1,backup";
+        // This has to be written in multiple lines because rustfmt just destroys the string if written in one line
+        let gene_list = "
+            ensembl_id,gene_symbol,group,priority
+            ENSG00000141510,TP53,group0,must_have
+            ENSG00000116678,LEPR,group0,desired
+            ENSG00000120802,TMPO,group1,backup";
 
         let targets = parse_target_list(gene_list, &HashMap::new(), xenium_v1_human_ensembl_id_to_gene)
             .unwrap()

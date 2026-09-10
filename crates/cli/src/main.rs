@@ -7,7 +7,7 @@ use clap::Parser;
 
 use crate::{
     all::convert_target_list_and_reference_datasets,
-    reference_datasets::{ReferenceDatasetCliOptions, convert_reference_datasets, dataset_name},
+    reference_datasets::{ReferenceDatasetCliOptions, convert_all_reference_datasets_and_write, dataset_name},
     targets::{TargetListCliOptions, convert_target_list},
 };
 
@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
             convert_target_list(&options, &output_dir)?;
         }
         Command::References(options) => {
-            convert_reference_datasets(&options, &output_dir)?;
+            convert_all_reference_datasets_and_write(&options, &output_dir)?;
         }
         Command::All {
             targets_options,

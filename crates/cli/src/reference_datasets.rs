@@ -15,50 +15,57 @@ use xenium_panel_convert_core::reference_dataset::{
 
 use crate::write::write_json_to_file;
 
-pub(super) fn convert_reference_datasets<'a>(
+pub(super) fn convert_all_reference_datasets_and_write<'a>(
     ReferenceDatasetCliOptions { reference_datasets }: &'a ReferenceDatasetCliOptions,
     output_dir: &Utf8Path,
-) -> anyhow::Result<Vec<(PseudoAnndata, &'a ReferenceDatasetSpec)>> {
-    let output_path = |filename: &str| output_dir.join(filename);
-
-    let mut converted_datasets = Vec::with_capacity(reference_datasets.len());
+) -> anyhow::Result<()> {
     for spec in reference_datasets {
-        let ReferenceDatasetSpec {
-            path,
-            counts_layer_name,
-            cell_barcode_col,
-            cell_annotation_col,
-            ensembl_id_col,
-            gene_symbol_col,
-            transcriptome_name: _,
-            flex: _,
-            transcriptome,
-            rename,
-        } = spec;
-
-        let dataset_name = dataset_name(path, rename.as_deref())?;
-
-        match read_reference_dataset(
-            path,
-            counts_layer_name,
-            cell_barcode_col,
-            cell_annotation_col,
-            ensembl_id_col,
-            gene_symbol_col,
-            *transcriptome,
-        ) {
-            Ok(ds) => {
-                write_reference_dataset(&output_path(dataset_name), &ds)?;
-                converted_datasets.push((ds, spec));
-            }
-            Err(errors) => {
-                let error_path = format!("{dataset_name}-errors.json");
-                write_json_to_file(&errors, &output_path(&error_path))?;
-            }
-        }
+        convert_reference_dataset_and_write(spec, output_dir)?;
     }
 
-    Ok(converted_datasets)
+    Ok(())
+}
+
+pub(super) fn convert_reference_dataset_and_write<'a>(
+    spec: &'a ReferenceDatasetSpec,
+    output_dir: &Utf8Path,
+) -> anyhow::Result<PseudoAnndata> {
+    let ReferenceDatasetSpec {
+        path,
+        counts_layer_name,
+        cell_barcode_col,
+        cell_annotation_col,
+        ensembl_id_col,
+        gene_symbol_col,
+        transcriptome_name: _,
+        flex: _,
+        transcriptome,
+        rename,
+    } = spec;
+    let dataset_name = dataset_name(path, rename.as_deref())?;
+
+    let output_path = |filename: &str| output_dir.join(filename);
+
+    match read_reference_dataset(
+        path,
+        counts_layer_name,
+        cell_barcode_col,
+        cell_annotation_col,
+        ensembl_id_col,
+        gene_symbol_col,
+        *transcriptome,
+    ) {
+        Ok(ds) => {
+            write_reference_dataset(&output_path(dataset_name), &ds)?;
+            Ok(ds)
+        }
+        Err(errors) => {
+            let error_path = format!("{dataset_name}-errors.json");
+            write_json_to_file(&errors, &output_path(&error_path))?;
+
+            Err(errors.into())
+        }
+    }
 }
 
 pub(super) fn dataset_name<'a>(path: &'a Utf8Path, rename: Option<&'a Utf8Path>) -> anyhow::Result<&'a str> {
@@ -173,7 +180,7 @@ pub(crate) struct ReferenceDatasetCliOptions {
         help = REFERENCE_DATASETS_HELP,
         long_help = REFERENCE_DATASETS_LONG_HELP
     )]
-    reference_datasets: Vec<ReferenceDatasetSpec>,
+    pub(super) reference_datasets: Vec<ReferenceDatasetSpec>,
 }
 
 const REFERENCE_DATASETS_HELP: &str =

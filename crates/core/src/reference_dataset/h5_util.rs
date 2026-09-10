@@ -165,8 +165,7 @@ enum StringEncodingType {
 pub enum ReadH5FieldError {
     #[error(
         "{object_path} could not be read as a {field_type} ({hdf5_error}) - ensure the correct column name was \
-         provided (available objects in H5AD: {:?})",
-        available_objects
+         provided"
     )]
     InvalidH5ObjectPath {
         hdf5_error: String,
