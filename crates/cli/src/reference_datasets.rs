@@ -15,8 +15,8 @@ use xenium_panel_convert_core::reference_dataset::{
 
 use crate::write::write_json_to_file;
 
-pub(super) fn convert_all_reference_datasets_and_write<'a>(
-    ReferenceDatasetCliOptions { reference_datasets }: &'a ReferenceDatasetCliOptions,
+pub(super) fn convert_all_reference_datasets_and_write(
+    ReferenceDatasetCliOptions { reference_datasets }: &ReferenceDatasetCliOptions,
     output_dir: &Utf8Path,
 ) -> anyhow::Result<()> {
     for spec in reference_datasets {
@@ -26,8 +26,8 @@ pub(super) fn convert_all_reference_datasets_and_write<'a>(
     Ok(())
 }
 
-pub(super) fn convert_reference_dataset_and_write<'a>(
-    spec: &'a ReferenceDatasetSpec,
+pub(super) fn convert_reference_dataset_and_write(
+    spec: &ReferenceDatasetSpec,
     output_dir: &Utf8Path,
 ) -> anyhow::Result<PseudoAnndata> {
     let ReferenceDatasetSpec {
