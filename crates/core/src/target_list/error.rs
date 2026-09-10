@@ -34,16 +34,13 @@ pub enum TargetError {
     VersionedOrLowercaseEnsemblId { correct_gene: Option<ValidGene> },
     #[error("no Ensembl ID was provided - add one")]
     NoEnsemblId,
+    #[error("no gene symbol was provided - add one (based on the Ensembl ID, it is probably {probable_gene_symbol})")]
+    NoGeneSymbol { probable_gene_symbol: GeneSymbol },
     #[error(
-        "no gene name was provided - add one (based on the Ensembl ID, it is probably \
-         {probable_gene_symbol})"
+        "the gene symbol corresponding to the Ensembl ID {ensembl_id} is {correct_gene_symbol} - change either the \
+         Ensembl ID or the gene symbol so they match"
     )]
-    NoGeneName { probable_gene_symbol: GeneSymbol },
-    #[error(
-        "the gene name corresponding to the Ensembl ID {ensembl_id} is {correct_gene_symbol} - \
-         change either the Ensembl ID or the gene name so they match"
-    )]
-    EnsemblIdGeneNameMismatch {
+    EnsemblIdGeneSymbolMismatch {
         ensembl_id: EnsemblId,
         correct_gene_symbol: GeneSymbol,
     },

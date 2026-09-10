@@ -1,8 +1,6 @@
 use serde::Serialize;
 
-use crate::reference_dataset::{
-    Barcodes, CellAnnotations, umi_counts::RawCscUmiCounts, var::Features,
-};
+use crate::reference_dataset::{Barcodes, CellAnnotations, umi_counts::RawCscUmiCounts, var::Features};
 
 #[derive(Debug)]
 pub struct PseudoAnndata {

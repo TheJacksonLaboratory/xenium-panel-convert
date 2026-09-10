@@ -1,8 +1,6 @@
 use std::str::FromStr;
 
-use crate::{
-    complete_feature_sets::write_transcriptomes, xenium_panel_allowed_genes::write_gene_maps,
-};
+use crate::{complete_feature_sets::write_transcriptomes, xenium_panel_allowed_genes::write_gene_maps};
 
 #[path = "build/common.rs"]
 mod common;

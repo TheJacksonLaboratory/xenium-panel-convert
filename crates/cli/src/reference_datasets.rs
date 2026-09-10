@@ -15,56 +15,60 @@ use xenium_panel_convert_core::reference_dataset::{
 
 use crate::write::write_json_to_file;
 
-pub(super) fn convert_reference_datasets<'a>(
-    ReferenceDatasetCliOptions { reference_datasets }: &'a ReferenceDatasetCliOptions,
+pub(super) fn convert_all_reference_datasets_and_write(
+    ReferenceDatasetCliOptions { reference_datasets }: &ReferenceDatasetCliOptions,
     output_dir: &Utf8Path,
-) -> anyhow::Result<Vec<(PseudoAnndata, &'a ReferenceDatasetSpec)>> {
-    let output_path = |filename: &str| output_dir.join(filename);
-
-    let mut converted_datasets = Vec::with_capacity(reference_datasets.len());
+) -> anyhow::Result<()> {
     for spec in reference_datasets {
-        let ReferenceDatasetSpec {
-            path,
-            counts_layer_name,
-            cell_barcode_col,
-            cell_annotation_col,
-            ensembl_id_col,
-            gene_symbol_col,
-            transcriptome_name: _,
-            flex: _,
-            transcriptome,
-            rename,
-        } = spec;
-
-        let dataset_name = dataset_name(path, rename.as_deref())?;
-
-        match read_reference_dataset(
-            path,
-            counts_layer_name,
-            cell_barcode_col,
-            cell_annotation_col,
-            ensembl_id_col,
-            gene_symbol_col,
-            *transcriptome,
-        ) {
-            Ok(ds) => {
-                write_reference_dataset(&output_path(dataset_name), &ds)?;
-                converted_datasets.push((ds, spec));
-            }
-            Err(errors) => {
-                let error_path = format!("{dataset_name}-errors.json");
-                write_json_to_file(&errors, &output_path(&error_path))?;
-            }
-        }
+        convert_reference_dataset_and_write(spec, output_dir)?;
     }
 
-    Ok(converted_datasets)
+    Ok(())
 }
 
-pub(super) fn dataset_name<'a>(
-    path: &'a Utf8Path,
-    rename: Option<&'a Utf8Path>,
-) -> anyhow::Result<&'a str> {
+pub(super) fn convert_reference_dataset_and_write(
+    spec: &ReferenceDatasetSpec,
+    output_dir: &Utf8Path,
+) -> anyhow::Result<PseudoAnndata> {
+    let ReferenceDatasetSpec {
+        path,
+        counts_layer_name,
+        cell_barcode_col,
+        cell_annotation_col,
+        ensembl_id_col,
+        gene_symbol_col,
+        transcriptome_name: _,
+        flex: _,
+        transcriptome,
+        rename,
+    } = spec;
+    let dataset_name = dataset_name(path, rename.as_deref())?;
+
+    let output_path = |filename: &str| output_dir.join(filename);
+
+    match read_reference_dataset(
+        path,
+        counts_layer_name,
+        cell_barcode_col,
+        cell_annotation_col,
+        ensembl_id_col,
+        gene_symbol_col,
+        *transcriptome,
+    ) {
+        Ok(ds) => {
+            write_reference_dataset(&output_path(dataset_name), &ds)?;
+            Ok(ds)
+        }
+        Err(errors) => {
+            let error_path = format!("{dataset_name}-errors.json");
+            write_json_to_file(&errors, &output_path(&error_path))?;
+
+            Err(errors.into())
+        }
+    }
+}
+
+pub(super) fn dataset_name<'a>(path: &'a Utf8Path, rename: Option<&'a Utf8Path>) -> anyhow::Result<&'a str> {
     rename
         .and_then(Utf8Path::file_stem)
         .or_else(|| path.file_stem())
@@ -87,30 +91,16 @@ pub(super) struct ReferenceDatasetSpec {
 
 impl ReferenceDatasetSpec {
     fn parse_commandline(s: &str) -> anyhow::Result<Self> {
-        const EXAMPLE: &str = "path=matrix.h5ad,counts-layer=X,barcode-col=barcodes,\
-                               annotation-col=annotations,ensembl-id-col=gene_ids,\
-                               transcriptome=GRCh38-2024-A\nmatrix.h5ad,b=barcodes,a=annotations,\
-                               e=gene_ids,t=h2024";
+        const EXAMPLE: &str = "path=matrix.h5ad,counts-layer=X,barcode-col=barcodes,annotation-col=annotations,\
+                               ensembl-id-col=gene_ids,transcriptome=GRCh38-2024-A\nmatrix.h5ad,b=barcodes,\
+                               a=annotations,e=gene_ids,t=h2024";
 
-        fn get_spec_value_default<T: Default>(
-            spec: &HashMap<&str, &str>,
-            key: &str,
-            map: impl Fn(String) -> T,
-        ) -> T {
-            spec.get(key)
-                .map(|&s| s.to_owned())
-                .map(map)
-                .unwrap_or_default()
+        fn get_spec_value_default<T: Default>(spec: &HashMap<&str, &str>, key: &str, map: impl Fn(String) -> T) -> T {
+            spec.get(key).map(|&s| s.to_owned()).map(map).unwrap_or_default()
         }
 
-        fn get_spec_value<T>(
-            spec: &HashMap<&str, &str>,
-            key: &str,
-            map: impl Fn(String) -> T,
-        ) -> anyhow::Result<T> {
-            let val = *spec
-                .get(key)
-                .ok_or_else(|| anyhow!("key '{key}' is required"))?;
+        fn get_spec_value<T>(spec: &HashMap<&str, &str>, key: &str, map: impl Fn(String) -> T) -> anyhow::Result<T> {
+            let val = *spec.get(key).ok_or_else(|| anyhow!("key '{key}' is required"))?;
 
             Ok(map(val.to_owned()))
         }
@@ -138,8 +128,8 @@ impl ReferenceDatasetSpec {
                 (0, None) => ("path", kv_pair),
                 (_, None) => {
                     bail!(
-                        "reference dataset specification must be provided like one of the \
-                         following (mixing aliases and full-names is allowed):\n{EXAMPLE}"
+                        "reference dataset specification must be provided like one of the following (mixing aliases \
+                         and full-names is allowed):\n{EXAMPLE}"
                     );
                 }
             };
@@ -157,8 +147,7 @@ impl ReferenceDatasetSpec {
             );
         }
 
-        let transcriptome_from_str =
-            |s: &&str| TranscriptomeName::from_str(s).map_err(anyhow::Error::from);
+        let transcriptome_from_str = |s: &&str| TranscriptomeName::from_str(s).map_err(anyhow::Error::from);
         let transcriptome_name = spec
             .get("transcriptome")
             .ok_or(anyhow!("key 'transcriptome' is required"))
@@ -171,9 +160,7 @@ impl ReferenceDatasetSpec {
 
         Ok(Self {
             path: get_spec_value(&spec, "path", Utf8PathBuf::from)?,
-            counts_layer_name: get_spec_value_default(&spec, "counts-layer", |s| {
-                CountsLayerName::new(&s)
-            }),
+            counts_layer_name: get_spec_value_default(&spec, "counts-layer", |s| CountsLayerName::new(&s)),
             cell_barcode_col: get_spec_value_default(&spec, "barcode-col", CellBarcodeCol),
             cell_annotation_col: get_spec_value(&spec, "annotation-col", CellAnnotationCol)?,
             ensembl_id_col: get_spec_value_default(&spec, "ensembl-id-col", EnsemblIdCol),
@@ -193,31 +180,30 @@ pub(crate) struct ReferenceDatasetCliOptions {
         help = REFERENCE_DATASETS_HELP,
         long_help = REFERENCE_DATASETS_LONG_HELP
     )]
-    reference_datasets: Vec<ReferenceDatasetSpec>,
+    pub(super) reference_datasets: Vec<ReferenceDatasetSpec>,
 }
 
-const REFERENCE_DATASETS_HELP: &str = "One or more reference datasets, each specified as a \
-                                       comma-delimited list of <KEY>=<VALUE> pairs.";
+const REFERENCE_DATASETS_HELP: &str =
+    "One or more reference datasets, each specified as a comma-delimited list of <KEY>=<VALUE> pairs.";
 
 const REFERENCE_DATASETS_LONG_HELP: &str =
-    "One or more reference datasets, each specified as a comma-delimited list of <KEY>=<VALUE> \
-     pairs. Every key has a one-letter alias, and full names and aliases may be mixed within a \
-     single specification. No key may be given more than once. The value of 'path' may also be \
-     given without its key, in which case it must come first.
+    "One or more reference datasets, each specified as a comma-delimited list of <KEY>=<VALUE> pairs. Every key has a \
+     one-letter alias, and full names and aliases may be mixed within a single specification. No key may be given \
+     more than once. The value of 'path' may also be given without its key, in which case it must come first.
 
 KEY              ALIAS  VALUE
 - - - - - - - - - - - - - - -
-path           | p | the h5ad file to convert (required)
-annotation-col | a | obs column containing cell annotations (required)
-transcriptome  | t | transcriptome the dataset was aligned against (required)
-counts-layer   | c | layer where counts are stored [default: X]
-barcode-col    | b | obs column containing cell barcodes [default: _index]
-ensembl-id-col | e | var column containing Ensembl IDs [default: gene_ids]
-gene-symbol-col  | g | var column containing gene names [default: _index]
-flex           | f | 'true' if the dataset came from Flex (probe-based) chemistry, 'false' \
-     otherwise [default: false]
-rename         | r | name of the converted dataset in <OUTPUT_DIR> [default: the filename of \
-     'path', without its extension]
+path            | p | the h5ad file to convert (required)
+annotation-col  | a | obs column containing cell annotations (required)
+transcriptome   | t | transcriptome against which the dataset was aligned (required)
+counts-layer    | c | layer where counts are stored [default: X]
+barcode-col     | b | obs column containing cell barcodes [default: _index]
+ensembl-id-col  | e | var column containing Ensembl IDs [default: gene_ids]
+gene-symbol-col | g | var column containing gene symbols [default: _index]
+flex            | f | 'true' if the dataset was generated with the Flex (probe-based) chemistry, 'false' otherwise \
+     [default: false]
+rename          | r | name of the converted dataset in <OUTPUT_DIR> [default: the filename of 'path', without its \
+     extension]
 
 
 'transcriptome' is case-insensitive and must be one of:
@@ -233,10 +219,8 @@ Note that setting 'transcriptome' = 'other' will disable checking .var for gene-
 
 Examples:
 
-xp-convert references --output-dir output \
-     path=matrix.h5ad,annotation-col=cell_type,transcriptome=GRCh38-2024-A
-
-xp-convert references --output-dir output matrix.h5ad,a=cell_type,t=h2024,f=true,r=renamed-dataset";
+- path=matrix.h5ad,annotation-col=cell_type,transcriptome=GRCh38-2024-A
+- matrix.h5ad,a=cell_type,t=h2024,f=true,r=renamed-dataset";
 
 #[cfg(test)]
 mod tests {
@@ -257,10 +241,7 @@ mod tests {
 
         assert_eq!(spec.path.as_str(), "matrix.h5ad");
         assert_eq!(spec.cell_barcode_col, CellBarcodeCol("barcode".to_owned()));
-        assert_eq!(
-            spec.cell_annotation_col,
-            CellAnnotationCol("annotation".to_owned())
-        );
+        assert_eq!(spec.cell_annotation_col, CellAnnotationCol("annotation".to_owned()));
         assert_eq!(spec.ensembl_id_col, EnsemblIdCol("id".to_owned()));
         assert_eq!(spec.gene_symbol_col, GeneSymbolCol("name".to_owned()));
         assert_eq!(spec.rename.as_deref(), Some(Utf8Path::new("renamed")));
@@ -269,10 +250,9 @@ mod tests {
 
     #[test]
     fn spec_applies_column_defaults() {
-        let spec = ReferenceDatasetSpec::parse_commandline(
-            "path=matrix.h5ad,annotation-col=annotations,transcriptome=m2020",
-        )
-        .unwrap();
+        let spec =
+            ReferenceDatasetSpec::parse_commandline("path=matrix.h5ad,annotation-col=annotations,transcriptome=m2020")
+                .unwrap();
 
         assert_eq!(spec.cell_barcode_col, CellBarcodeCol("_index".to_owned()));
         assert_eq!(spec.ensembl_id_col, EnsemblIdCol("gene_ids".to_owned()));

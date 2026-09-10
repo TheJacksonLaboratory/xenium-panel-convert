@@ -92,9 +92,9 @@ impl UnvalidatedEnsemblId {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct UnvalidatedGeneName(String);
+pub struct UnvalidatedGeneSymbol(String);
 
-impl UnvalidatedGeneName {
+impl UnvalidatedGeneSymbol {
     #[cfg(test)]
     pub(super) fn new(gene_symbol: String) -> Self {
         Self(gene_symbol)
@@ -105,37 +105,29 @@ impl UnvalidatedGeneName {
     }
 }
 
-impl PartialEq<GeneSymbol> for UnvalidatedGeneName {
+impl PartialEq<GeneSymbol> for UnvalidatedGeneSymbol {
     fn eq(&self, other: &GeneSymbol) -> bool {
         self.0 == other.0
     }
 }
 
 #[must_use]
-pub fn xenium_v1_human_ensembl_id_to_gene(
-    ensembl_id: &UnvalidatedEnsemblId,
-) -> Option<(EnsemblId, GeneSymbol)> {
+pub fn xenium_v1_human_ensembl_id_to_gene(ensembl_id: &UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> {
     ensembl_id_to_gene(ensembl_id, &xenium_v1_human::XENIUM_V1_HUMAN_GENES)
 }
 
 #[must_use]
-pub fn xenium_prime_human_ensembl_id_to_gene(
-    ensembl_id: &UnvalidatedEnsemblId,
-) -> Option<(EnsemblId, GeneSymbol)> {
+pub fn xenium_prime_human_ensembl_id_to_gene(ensembl_id: &UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> {
     ensembl_id_to_gene(ensembl_id, &xenium_prime_human::XENIUM_PRIME_HUMAN_GENES)
 }
 
 #[must_use]
-pub fn xenium_v1_mouse_ensembl_id_to_gene(
-    ensembl_id: &UnvalidatedEnsemblId,
-) -> Option<(EnsemblId, GeneSymbol)> {
+pub fn xenium_v1_mouse_ensembl_id_to_gene(ensembl_id: &UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> {
     ensembl_id_to_gene(ensembl_id, &xenium_v1_mouse::XENIUM_V1_MOUSE_GENES)
 }
 
 #[must_use]
-pub fn xenium_prime_mouse_ensembl_id_to_gene(
-    ensembl_id: &UnvalidatedEnsemblId,
-) -> Option<(EnsemblId, GeneSymbol)> {
+pub fn xenium_prime_mouse_ensembl_id_to_gene(ensembl_id: &UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> {
     ensembl_id_to_gene(ensembl_id, &xenium_prime_mouse::XENIUM_PRIME_MOUSE_GENES)
 }
 

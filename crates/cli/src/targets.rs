@@ -1,4 +1,3 @@
-#![expect(clippy::doc_markdown)]
 use std::{collections::HashMap, fs};
 
 use anyhow::{Context, anyhow};
@@ -6,9 +5,8 @@ use camino::{Utf8Path, Utf8PathBuf};
 use xenium_panel_convert_core::target_list::{
     TargetList,
     chemistry::{
-        Chemistry, Species, xenium_prime_human_ensembl_id_to_gene,
-        xenium_prime_mouse_ensembl_id_to_gene, xenium_v1_human_ensembl_id_to_gene,
-        xenium_v1_mouse_ensembl_id_to_gene,
+        Chemistry, Species, xenium_prime_human_ensembl_id_to_gene, xenium_prime_mouse_ensembl_id_to_gene,
+        xenium_v1_human_ensembl_id_to_gene, xenium_v1_mouse_ensembl_id_to_gene,
     },
     parse_target_list,
     target::ValidTargetCsv,
@@ -27,8 +25,8 @@ pub(super) fn convert_target_list(
     }: &TargetListCliOptions,
     output_dir: &Utf8Path,
 ) -> anyhow::Result<Option<TargetList>> {
-    let target_list = fs::read_to_string(targets_path)
-        .with_context(|| format!("failed to read target-list from {targets_path}"))?;
+    let target_list =
+        fs::read_to_string(targets_path).with_context(|| format!("failed to read target-list from {targets_path}"))?;
 
     let field_aliases_from_file = read_field_aliases_from_file(field_alias_file.as_deref())?;
 
@@ -73,20 +71,22 @@ pub(super) fn convert_target_list(
 
 #[derive(Debug, Clone, clap::Args)]
 pub(super) struct TargetListCliOptions {
-    /// A path to a CSV-formatted file with the header
-    /// "ensembl_id,gene_symbol,group,priority", where "priority" is one of
-    /// "must_have", "desired", or "backup".
+    /// A path to a CSV-formatted file of panel targets
     #[clap(long, short)]
     targets_path: Utf8PathBuf,
-    /// A path to a TOML file containing a map of field-aliases for the
-    /// target-list CSV. The file should map aliases to canonical fieldnames.
+    /// A path to a TOML file mapping field-aliases to canonical fieldnames
     #[clap(long, short = 'f')]
     field_alias_file: Option<Utf8PathBuf>,
-    /// One or more field-aliases specified as '<ALIAS>=<FIELD>'
-    #[clap(long, short = 'a', value_parser = parse_field_aliases)]
+    /// One or more field-aliases specified as '<ALIAS>=<FIELD>'. This is useful for processing a CSV-file without
+    /// editing its header. Takes precedence over --field-alias-file if the same fieldname is found in both
+    #[clap(long = "field-alias", short = 'a', value_parser = parse_field_aliases)]
     field_aliases: Vec<(String, String)>,
+    /// The species of your target-list, used in conjunction with --chemistry to determine the set of genes allowed by
+    /// the panel designer
     #[clap(long, short)]
     pub(super) species: Species,
+    /// The desired chemistry of your eventual panel, used in conjunction with --species to determine the set of genes
+    /// allowed by the panel designer
     #[clap(long, short)]
     chemistry: Chemistry,
 }
@@ -145,9 +145,7 @@ mod tests {
 
         assert_eq!(
             field_aliases,
-            [("alias1", "field1"), ("alias2", "field2")]
-                .into_iter()
-                .collect()
+            [("alias1", "field1"), ("alias2", "field2")].into_iter().collect()
         );
     }
 }

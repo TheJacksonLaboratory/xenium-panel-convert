@@ -16,54 +16,38 @@ pub(super) fn read_container(file: &File, path: &str) -> Result<Container, ReadH
         Err(_) => file
             .dataset(path)
             .and_then(|ds| ds.as_container())
-            .map_err(|err| {
-                ReadH5FieldError::new_invalid_field(&err, file, path, FieldType::Container)
-            })?,
+            .map_err(|err| ReadH5FieldError::new_invalid_field(&err, file, path, FieldType::Container))?,
     };
 
     Ok(container)
 }
 
-pub(super) fn read_attribute<T: H5Type>(
-    container: &Container,
-    path: &str,
-) -> Result<T, ReadH5FieldError> {
-    container
-        .attr(path)
-        .and_then(|a| a.read_scalar())
-        .map_err(|err| {
-            ReadH5FieldError::new_invalid_field(
-                &err,
-                &container.file().expect("file should be available"),
-                path,
-                FieldType::Attribute,
-            )
-        })
+pub(super) fn read_attribute<T: H5Type>(container: &Container, path: &str) -> Result<T, ReadH5FieldError> {
+    container.attr(path).and_then(|a| a.read_scalar()).map_err(|err| {
+        ReadH5FieldError::new_invalid_field(
+            &err,
+            &container.file().expect("file should be available"),
+            path,
+            FieldType::Attribute,
+        )
+    })
 }
 
-pub(super) fn read_dataset_raw<T: H5Type>(
-    file: &File,
-    path: &str,
-) -> Result<Vec<T>, ReadH5FieldError> {
+pub(super) fn read_dataset_raw<T: H5Type>(file: &File, path: &str) -> Result<Vec<T>, ReadH5FieldError> {
     file.dataset(path)
         .and_then(|ds| ds.read_raw())
         .map_err(|err| ReadH5FieldError::new_invalid_field(&err, file, path, FieldType::Dataset))
 }
 
-pub(super) fn read_1d_string_dataset(
-    file: &File,
-    path: &str,
-) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
-    let encoding_type: VarLenUnicode =
-        read_attribute(&read_container(file, path)?, "encoding-type")?;
+pub(super) fn read_1d_string_dataset(file: &File, path: &str) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
+    let encoding_type: VarLenUnicode = read_attribute(&read_container(file, path)?, "encoding-type")?;
 
-    let encoding_type = StringEncodingType::from_str(&encoding_type).map_err(|_| {
-        ReadH5FieldError::UnknownEncodingType {
+    let encoding_type =
+        StringEncodingType::from_str(&encoding_type).map_err(|_| ReadH5FieldError::UnknownEncodingType {
             object_path: path.to_owned(),
             found: encoding_type.to_string(),
             expected: StringEncodingType::VARIANTS,
-        }
-    })?;
+        })?;
 
     match encoding_type {
         StringEncodingType::Categorical => read_categorical_array(file, path),
@@ -72,10 +56,7 @@ pub(super) fn read_1d_string_dataset(
     }
 }
 
-fn read_categorical_array(
-    file: &File,
-    path: &str,
-) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
+fn read_categorical_array(file: &File, path: &str) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
     let mut null_indices = Vec::new();
 
     let codes = read_1d_dataset::<i32>(file, &format!("{path}/codes"))?;
@@ -109,10 +90,7 @@ fn read_string_array(file: &File, path: &str) -> Result<Array1<VarLenUnicode>, R
     read_1d_dataset(file, path)
 }
 
-fn read_nullable_string_array(
-    file: &File,
-    path: &str,
-) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
+fn read_nullable_string_array(file: &File, path: &str) -> Result<Array1<VarLenUnicode>, ReadH5FieldError> {
     let is_null_array = read_1d_dataset::<bool>(file, &format!("{path}/mask"))?;
     let null_indices: Vec<_> = is_null_array
         .iter()
@@ -137,10 +115,7 @@ fn read_1d_dataset<T: H5Type>(file: &File, path: &str) -> Result<Array1<T>, Read
 }
 
 #[cfg(test)]
-pub(crate) fn read_test_1d_dataset<T: H5Type>(
-    file: &File,
-    path: &str,
-) -> Result<Array1<T>, ReadH5FieldError> {
+pub(crate) fn read_test_1d_dataset<T: H5Type>(file: &File, path: &str) -> Result<Array1<T>, ReadH5FieldError> {
     read_1d_dataset(file, path)
 }
 
@@ -189,9 +164,8 @@ enum StringEncodingType {
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ReadH5FieldError {
     #[error(
-        "{object_path} could not be read as a {field_type} ({hdf5_error}) - ensure the correct \
-         column name was provided (available objects in H5AD: {:?})",
-        available_objects
+        "{object_path} could not be read as a {field_type} ({hdf5_error}) - ensure the correct column name was \
+         provided"
     )]
     InvalidH5ObjectPath {
         hdf5_error: String,
@@ -200,16 +174,12 @@ pub enum ReadH5FieldError {
         available_objects: Vec<String>,
     },
     #[error(
-        "null values were found at the given indices of {object_path} - ensure every element of \
-         the array has a value"
+        "null values were found at the given indices of {object_path} - ensure every element of the array has a value"
     )]
-    NullValues {
-        indices: Vec<usize>,
-        object_path: String,
-    },
+    NullValues { indices: Vec<usize>, object_path: String },
     #[error(
-        "{object_path} has an unknown encoding type {found}, expected one of {expected:?} - \
-         ensure the file was written by scanpy"
+        "{object_path} has an unknown encoding type {found}, expected one of {expected:?} - ensure the file was \
+         written by scanpy"
     )]
     UnknownEncodingType {
         object_path: String,
@@ -236,22 +206,19 @@ impl ReadH5FieldError {
 
 fn recurse_through_group(group: &Group) -> Vec<String> {
     group
-        .iter_visit_default(
-            Vec::with_capacity(32),
-            |group: &Group, name, _, object_names| {
-                if group.dataset(name).is_ok() {
-                    object_names.push(format!("{}/{name}", group.name()));
-                    return true;
-                }
+        .iter_visit_default(Vec::with_capacity(32), |group: &Group, name, _, object_names| {
+            if group.dataset(name).is_ok() {
+                object_names.push(format!("{}/{name}", group.name()));
+                return true;
+            }
 
-                if let Ok(nested_group) = group.group(name) {
-                    let mut sub_object_names = recurse_through_group(&nested_group);
-                    object_names.append(&mut sub_object_names);
-                }
+            if let Ok(nested_group) = group.group(name) {
+                let mut sub_object_names = recurse_through_group(&nested_group);
+                object_names.append(&mut sub_object_names);
+            }
 
-                true
-            },
-        )
+            true
+        })
         .expect("iterating over a file should not produce errors")
 }
 
