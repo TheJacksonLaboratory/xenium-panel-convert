@@ -219,9 +219,8 @@ Note that setting 'transcriptome' = 'other' will disable checking .var for gene-
 
 Examples:
 
-xp-convert references --output-dir output path=matrix.h5ad,annotation-col=cell_type,transcriptome=GRCh38-2024-A
-
-xp-convert references --output-dir output matrix.h5ad,a=cell_type,t=h2024,f=true,r=renamed-dataset";
+- path=matrix.h5ad,annotation-col=cell_type,transcriptome=GRCh38-2024-A
+- matrix.h5ad,a=cell_type,t=h2024,f=true,r=renamed-dataset";
 
 #[cfg(test)]
 mod tests {

@@ -25,7 +25,7 @@ The main input for this command is a CSV-formatted target-list. The target-list 
 | --- | --- | --- | --- | --- |
 | `ensembl_id` | The Ensembl ID of the target. If the row has `custom == true`, this will not be validated against the reference genome. | Any Ensembl ID from the [allowed list of genes](https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-gene-list#yesprobe), unless `custom == true`, in which case any string | ENSG00000141510 | yes |
 | `gene_symbol` | The gene-symbol of the target. If the row has `custom == true`, this will not be validated against the reference genome. | Any gene-symbol from the [allowed list of genes](https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-gene-list#yesprobe), unless `custom == true`, in which case any string | TP53 | yes |
-| `group` | A key to create various gene "groups". If the Xenium Panel Designer cannot include a target, you can replace it with a target with the same `group`. This can string can be whatever you want, though it may be useful to use biologically-meaningful terms. Note that all group-names will be lowercased in the ouptut. | Any string | senescense | yes |
+| `group` | A key to create various gene "groups". If the Xenium Panel Designer cannot include a target, you can replace it with a target with the same `group`. This string can be whatever you want, though it may be useful to use biologically-meaningful terms. Note that all group-names will be lowercased in the output. | Any string | senecsense | yes |
 | `priority` | A priority to assign to the target, used to sort the output and prevent the Xenium Panel Designer from dropping must-have genes from the panel. | `backup` \| `desired` \| `must_have` | `must_have` | yes |
 | `custom` | Whether this is a "custom" target, in which case it will not be validated against the reference genome. | `true` \| `false` | `true` | no, defaults to `false` |
 
@@ -38,13 +38,13 @@ ensembl_id,gene_symbol,group,priority,notes
 ENSG00000141510,TP53,tumor,must_have,some interesting fact
 ```
 
-If the target-list has different fieldnames and you don't want to edit the target-list, you can provide a set of field-aliases that map the fieldname in the file to one of the canonical fieldnames above. For example, if the field containing Ensembl IDs is called "gene ID", you can do:
+If the target-list has different fieldnames and you don't want to edit it, you can provide a set of field-aliases that map the fieldname in the file to one of the canonical fieldnames above. For example, if the field containing Ensembl IDs is called "gene ID", you can do:
 
 ```bash
-xp-convert targets --targets-path /path/to/targets.csv --field-alias 'gene ID=ensembl_id'
+xp-convert targets --targets-path targets.csv --field-alias 'gene ID=ensembl_id'
 ```
 
-If you have a common set of aliases, you can store them in a TOML file mapping the alias to the canonical fieldname:
+If you have a set of aliases you use frequently, you can store them in a TOML file mapping the alias to the canonical fieldname:
 
 ```toml
 "gene ID" = "ensembl_id"
@@ -53,10 +53,10 @@ If you have a common set of aliases, you can store them in a TOML file mapping t
 and then pass that file on the command-line:
 
 ```bash
-xp-convert targets --targets-path /path/to/targets.csv --field-alias-file /path/to/aliases.toml
+xp-convert targets --targets-path targets.csv --field-alias-file aliases.toml
 ```
 
-If the two methods are combined, aliases passed on the command-line take precedence over aliases in the file.
+If you use both flags, aliases passed on the command-line take precedence over aliases in the file.
 
 #### **Outputs**
 
@@ -75,7 +75,7 @@ Gene,Ensembl ID,Probe sets,Force
 TP53,ENSG00000141510,,forced
 ```
 
-All encountered errors are collected and written `<OUTPUT_DIR>/target-list-errors.json`. For example, a row without the field `priority` and with an incorrect gene-symbol would result in:
+All encountered errors are collected and written to `<OUTPUT_DIR>/target-list-errors.json`. For example, a row without the field `priority` and with an incorrect gene-symbol would result in:
 
 ```json
 [
@@ -95,10 +95,10 @@ All encountered errors are collected and written `<OUTPUT_DIR>/target-list-error
         "hint": "the field 'priority' is missing - add it to the CSV"
       },
       {
-        "type": "ensembl_id_gene_name_mismatch",
+        "type": "ensembl_id_gene_symbol_mismatch",
         "ensembl_id": "ENSG00000141510",
         "correct_gene_symbol": "TP53",
-        "hint": "the gene name corresponding to the Ensembl ID ENSG00000141510 is TP53 - change either the Ensembl ID or the gene name so they match"
+        "hint": "the gene name corresponding to the Ensembl ID ENSG00000141510 is TP53 - change either the Ensembl ID or the gene symbol so they match"
       }
     ]
   }
@@ -118,6 +118,8 @@ adata = sc.read_10x_h5("/path/to/data.h5")
 
 # Whatever logic you want to annotate each cell
 adata.obs["annotation"] = ...
+
+sc.write_h5ad("/path/to/data.h5ad", adata)
 ```
 
 #### **Outputs**
@@ -137,7 +139,7 @@ xp-convert
     └── matrix.h5
 ```
 
-This directory is ready for upload to the Xenium Panel Designer in one of the [accepted formats](https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-single-cell-reference#ref-formats).
+This directory is ready for upload to the Xenium Panel Designer in one of the [accepted formats](https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-single-cell-reference#ref-formats). See the full list of options by running `xp-convert references --help`.
 
 All encountered errors are collected and written to `<OUTPUT_DIR>/<DATASET_NAME>-errors.json`. For example, supplying the wrong column for cell-annotations would result in:
 

@@ -79,7 +79,7 @@ pub(super) struct TargetListCliOptions {
     #[clap(long, short = 'f')]
     field_alias_file: Option<Utf8PathBuf>,
     /// One or more field-aliases specified as '<ALIAS>=<FIELD>'. This is useful for processing a CSV-file without
-    /// editing its header. Takes precedence over field_alias_file if the same fieldname is found in both.
+    /// editing its header. Takes precedence over --field-alias-file if the same fieldname is found in both.
     #[clap(long = "field-alias", short = 'a', value_parser = parse_field_aliases)]
     field_aliases: Vec<(String, String)>,
     /// The species of your target-list, used in conjunction with --chemistry to determine the set of genes allowed by
