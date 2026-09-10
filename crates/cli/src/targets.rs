@@ -72,22 +72,22 @@ pub(super) fn convert_target_list(
 
 #[derive(Debug, Clone, clap::Args)]
 pub(super) struct TargetListCliOptions {
-    /// A path to a CSV-formatted file of panel targets. See https://github.com/TheJacksonLaboratory/xenium-panel-convert for more details.
+    /// A path to a CSV-formatted file of panel targets
     #[clap(long, short)]
     targets_path: Utf8PathBuf,
-    /// A path to a TOML file mapping field-aliases to canonical fieldnames. See https://github.com/TheJacksonLaboratory/xenium-panel-convert for more details.
+    /// A path to a TOML file mapping field-aliases to canonical fieldnames
     #[clap(long, short = 'f')]
     field_alias_file: Option<Utf8PathBuf>,
     /// One or more field-aliases specified as '<ALIAS>=<FIELD>'. This is useful for processing a CSV-file without
-    /// editing its header. Takes precedence over --field-alias-file if the same fieldname is found in both.
+    /// editing its header. Takes precedence over --field-alias-file if the same fieldname is found in both
     #[clap(long = "field-alias", short = 'a', value_parser = parse_field_aliases)]
     field_aliases: Vec<(String, String)>,
     /// The species of your target-list, used in conjunction with --chemistry to determine the set of genes allowed by
-    /// the panel designer.
+    /// the panel designer
     #[clap(long, short)]
     pub(super) species: Species,
     /// The desired chemistry of your eventual panel, used in conjunction with --species to determine the set of genes
-    /// allowed by the panel designer.
+    /// allowed by the panel designer
     #[clap(long, short)]
     chemistry: Chemistry,
 }

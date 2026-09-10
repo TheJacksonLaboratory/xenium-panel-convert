@@ -39,6 +39,7 @@ fn main() -> anyhow::Result<()> {
 
 #[derive(clap::Parser)]
 #[clap(version)]
+/// Convert files to the formats accepted by the 10x Genomics Xenium Panel Designer
 struct Cli {
     #[clap(subcommand)]
     command: Command,
@@ -50,10 +51,16 @@ struct Cli {
 #[derive(clap::Subcommand)]
 enum Command {
     /// Convert a target-list to a format suitable for the Xenium Panel Designer.
+    ///
+    /// See https://github.com/TheJacksonLaboratory/xenium-panel-convert#xp-convert-targets for information on inputs and outputs.
     Targets(TargetListCliOptions),
     /// Convert scanpy-annotated single-cell RNA sequencing datasets to a format suitable for the Xenium Panel Designer.
+    ///
+    /// See https://github.com/TheJacksonLaboratory/xenium-panel-convert#xp-convert-references for information on inputs and outputs.
     References(ReferenceDatasetCliOptions),
     /// Convert a target-list and reference datasets to formats suitable for the Xenium Panel Designer.
+    ///
+    /// See https://github.com/TheJacksonLaboratory/xenium-panel-convert#xp-convert-all for information on inputs and outputs.
     All {
         #[clap(flatten)]
         targets_options: TargetListCliOptions,

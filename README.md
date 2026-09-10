@@ -25,7 +25,7 @@ The main input for this command is a CSV-formatted target-list. The target-list 
 | --- | --- | --- | --- | --- |
 | `ensembl_id` | The Ensembl ID of the target. If the row has `custom == true`, this will not be validated against the reference genome. | Any Ensembl ID from the [allowed list of genes](https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-gene-list#yesprobe), unless `custom == true`, in which case any string | ENSG00000141510 | yes |
 | `gene_symbol` | The gene-symbol of the target. If the row has `custom == true`, this will not be validated against the reference genome. | Any gene-symbol from the [allowed list of genes](https://www.10xgenomics.com/support/software/xenium-panel-designer/latest/tutorials/create-gene-list#yesprobe), unless `custom == true`, in which case any string | TP53 | yes |
-| `group` | A key to create various gene "groups". If the Xenium Panel Designer cannot include a target, you can replace it with a target with the same `group`. This string can be whatever you want, though it may be useful to use biologically-meaningful terms. Note that all group-names will be lowercased in the output. | Any string | senecsense | yes |
+| `group` | A key to create various gene "groups". If the Xenium Panel Designer cannot include a target, you can replace it with a target with the same `group`. This string can be whatever you want, though it may be useful to use biologically-meaningful terms. Note that all group-names will be lowercased in the output. | Any string | senescence | yes |
 | `priority` | A priority to assign to the target, used to sort the output and prevent the Xenium Panel Designer from dropping must-have genes from the panel. | `backup` \| `desired` \| `must_have` | `must_have` | yes |
 | `custom` | Whether this is a "custom" target, in which case it will not be validated against the reference genome. | `true` \| `false` | `true` | no, defaults to `false` |
 
@@ -98,7 +98,7 @@ All encountered errors are collected and written to `<OUTPUT_DIR>/target-list-er
         "type": "ensembl_id_gene_symbol_mismatch",
         "ensembl_id": "ENSG00000141510",
         "correct_gene_symbol": "TP53",
-        "hint": "the gene name corresponding to the Ensembl ID ENSG00000141510 is TP53 - change either the Ensembl ID or the gene symbol so they match"
+        "hint": "the gene symbol corresponding to the Ensembl ID ENSG00000141510 is TP53 - change either the Ensembl ID or the gene symbol so they match"
       }
     ]
   }
@@ -119,7 +119,7 @@ adata = sc.read_10x_h5("/path/to/data.h5")
 # Whatever logic you want to annotate each cell
 adata.obs["annotation"] = ...
 
-sc.write_h5ad("/path/to/data.h5ad", adata)
+sc.write("/path/to/data.h5ad", adata)
 ```
 
 #### **Outputs**
