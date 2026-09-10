@@ -1,11 +1,9 @@
 #![expect(clippy::unreadable_literal)]
 use crate::reference_dataset::transcriptome::{
-    grch38_2020_a::GRCH38_2020_A, grch38_2020_a_flex::GRCH38_2020_A_FLEX,
-    grch38_2024_a::GRCH38_2024_A, grch38_2024_a_flex_v1_1::GRCH38_2024_A_FLEX_V1_1,
-    grch38_2024_a_flex_v2_0::GRCH38_2024_A_FLEX_V2_0, grcm39_2024_a::GRCM39_2024_A,
-    grcm39_2024_a_flex_v1_1::GRCM39_2024_A_FLEX_V1_1,
-    grcm39_2024_a_flex_v2_0::GRCM39_2024_A_FLEX_V2_0, mm10_2020_a::MM10_2020_A,
-    mm10_2020_a_flex::MM10_2020_A_FLEX,
+    grch38_2020_a::GRCH38_2020_A, grch38_2020_a_flex::GRCH38_2020_A_FLEX, grch38_2024_a::GRCH38_2024_A,
+    grch38_2024_a_flex_v1_1::GRCH38_2024_A_FLEX_V1_1, grch38_2024_a_flex_v2_0::GRCH38_2024_A_FLEX_V2_0,
+    grcm39_2024_a::GRCM39_2024_A, grcm39_2024_a_flex_v1_1::GRCM39_2024_A_FLEX_V1_1,
+    grcm39_2024_a_flex_v2_0::GRCM39_2024_A_FLEX_V2_0, mm10_2020_a::MM10_2020_A, mm10_2020_a_flex::MM10_2020_A_FLEX,
 };
 
 mod grch38_2020_a;
@@ -65,16 +63,9 @@ impl Transcriptome {
     }
 
     #[must_use]
-    pub(crate) fn gene_map(
-        self,
-        n_genes_in_dataset: usize,
-    ) -> Option<&'static phf::Map<&'static str, &'static str>> {
+    pub(crate) fn gene_map(self, n_genes_in_dataset: usize) -> Option<&'static phf::Map<&'static str, &'static str>> {
         match self {
-            Self::ThreePrime(genes) | Self::Flex2020A(genes)
-                if n_genes_in_dataset == genes.len() =>
-            {
-                Some(genes)
-            }
+            Self::ThreePrime(genes) | Self::Flex2020A(genes) if n_genes_in_dataset == genes.len() => Some(genes),
             Self::Flex2024A { v1, v2 } => {
                 let is_v1 = v1.len() == n_genes_in_dataset;
                 let is_v2 = v2.len() == n_genes_in_dataset;
@@ -82,9 +73,11 @@ impl Transcriptome {
                 let v1 = is_v1.then_some(v1);
                 let v2 = is_v2.then_some(v2);
 
-                // The only transcriptomes with the same number of genes are probe-sets
-                // GRCm39-2024-A v1.1.1 and probe-sets GRCm39-2024-A v2.0.0. Luckily, they are
-                // exactly the same, so just default to v2 since that's more recent
+                // The only transcriptomes with the same number of genes are
+                // probe-sets GRCm39-2024-A v1.1.1 and
+                // probe-sets GRCm39-2024-A v2.0.0. Luckily, they are
+                // exactly the same, so just default to v2 since that's more
+                // recent
                 v2.or(v1)
             }
             Self::ThreePrime(_) | Self::Flex2020A(_) => None,
@@ -115,8 +108,7 @@ pub enum TranscriptomeName {
 mod tests {
     use crate::reference_dataset::transcriptome::{
         Transcriptome, TranscriptomeName, grch38_2020_a::GRCH38_2020_A,
-        grch38_2024_a_flex_v1_1::GRCH38_2024_A_FLEX_V1_1,
-        grch38_2024_a_flex_v2_0::GRCH38_2024_A_FLEX_V2_0,
+        grch38_2024_a_flex_v1_1::GRCH38_2024_A_FLEX_V1_1, grch38_2024_a_flex_v2_0::GRCH38_2024_A_FLEX_V2_0,
         grcm39_2024_a_flex_v2_0::GRCM39_2024_A_FLEX_V2_0,
     };
 
@@ -125,10 +117,7 @@ mod tests {
         let three_prime = Transcriptome::new(TranscriptomeName::Grch382020A, false).unwrap();
 
         std::assert_matches!(three_prime.gene_map(100), None);
-        assert_eq!(
-            three_prime.gene_map(GRCH38_2020_A.len()).unwrap(),
-            &GRCH38_2020_A
-        );
+        assert_eq!(three_prime.gene_map(GRCH38_2020_A.len()).unwrap(), &GRCH38_2020_A);
 
         let human_flex = Transcriptome::new(TranscriptomeName::Grch382024A, true).unwrap();
 

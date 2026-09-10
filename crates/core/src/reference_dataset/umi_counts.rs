@@ -17,15 +17,12 @@ pub(super) fn read_umi_counts_from_h5ad(
     file: &File,
     layer_name: &CountsLayerName,
 ) -> Result<RawCscUmiCounts, UmiCountsError> {
-    let encoding_type: VarLenUnicode =
-        read_attribute(&read_container(file, layer_name.as_str())?, "encoding-type")?;
+    let encoding_type: VarLenUnicode = read_attribute(&read_container(file, layer_name.as_str())?, "encoding-type")?;
 
-    let encoding_type = EncodingType::from_str(&encoding_type).map_err(|()| {
-        UmiCountsError::UnknownEncodingType {
-            found: encoding_type.to_string(),
-            layer_name: layer_name.to_string(),
-            expected: EncodingType::VARIANTS,
-        }
+    let encoding_type = EncodingType::from_str(&encoding_type).map_err(|()| UmiCountsError::UnknownEncodingType {
+        found: encoding_type.to_string(),
+        layer_name: layer_name.to_string(),
+        expected: EncodingType::VARIANTS,
     })?;
 
     match encoding_type {
@@ -43,21 +40,16 @@ fn read_x_sparse(
     let indptr = read_dataset_raw(file, &format!("{layer_name}/indptr"))?;
     let indices = read_dataset_raw(file, &format!("{layer_name}/indices"))?;
 
-    // It's very nice that scanpy decides to store the shape as an attribute rather
-    // than following 10x Genomics and storing it as a dataset. It's great when a
-    // library built to analyze data changes the format of the data for no
-    // discernible reason :)
+    // It's very nice that scanpy decides to store the shape as an attribute
+    // rather than following 10x Genomics and storing it as a dataset. It's
+    // great when a library built to analyze data changes the format of the
+    // data for no discernible reason :)
     let shape = file
         .group(layer_name.as_str())
         .and_then(|x| x.attr("shape"))
         .and_then(|sh| sh.read_1d())
         .map_err(|err| {
-            ReadH5FieldError::new_invalid_field(
-                &err,
-                file,
-                &format!("{layer_name}/shape"),
-                FieldType::Attribute,
-            )
+            ReadH5FieldError::new_invalid_field(&err, file, &format!("{layer_name}/shape"), FieldType::Attribute)
         })?;
     let shape = (shape[0], shape[1]);
 
@@ -85,8 +77,8 @@ pub enum UmiCountsError {
     #[error(transparent)]
     MalformedCounts { error: ReadH5FieldError },
     #[error(
-        "the counts in {layer_name} have an unknown encoding type {found}, expected one of \
-         {expected:?} - ensure the file was written by scanpy"
+        "the counts in {layer_name} have an unknown encoding type {found}, expected one of {expected:?} - ensure the \
+         file was written by scanpy"
     )]
     UnknownEncodingType {
         found: String,
@@ -98,8 +90,7 @@ pub enum UmiCountsError {
     #[error("the counts are not whole, non-negative numbers - provide raw, untransformed counts")]
     TransformedCounts,
     #[error(
-        "every cell has the same total count, so the counts have been normalized - provide raw, \
-         unnormalized counts"
+        "every cell has the same total count, so the counts have been normalized - provide raw, unnormalized counts"
     )]
     NormalizedCounts,
     #[error("the counts matrix is malformed ({reason}) - ensure the file was written by scanpy")]
@@ -124,15 +115,13 @@ impl From<sprs::errors::StructureError> for UmiCountsError {
 mod tests {
     use hdf5_metno::File;
 
-    use crate::reference_dataset::{
-        columns::CountsLayerName, umi_counts::read_umi_counts_from_h5ad,
-    };
+    use crate::reference_dataset::{columns::CountsLayerName, umi_counts::read_umi_counts_from_h5ad};
 
     #[test]
     fn read_h5ad_files() {
         // The last one apparently has some compression applied to it because of
-        // scanpy.write's default behavior. It's really nice that scanpy's default
-        // behavior differs from anndata's default behavior :)
+        // scanpy.write's default behavior. It's really nice that scanpy's
+        // default behavior differs from anndata's default behavior :)
         let files = [
             "csr_adata",
             "csc_adata",

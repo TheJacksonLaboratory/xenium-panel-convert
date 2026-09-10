@@ -22,9 +22,7 @@ pub(crate) fn write_csv_with_header_to_file(
 ) -> anyhow::Result<()> {
     ensure!(!path.exists(), "cannot overwrite file at {path}");
 
-    let mut writer = csv::WriterBuilder::new()
-        .has_headers(false)
-        .from_path(path)?;
+    let mut writer = csv::WriterBuilder::new().has_headers(false).from_path(path)?;
 
     writer.write_record(header)?;
 

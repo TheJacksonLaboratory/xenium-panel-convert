@@ -94,15 +94,10 @@ fn validate_counts(mtx: UnvalidatedCscMatrix) -> Result<ValidatedCscMatrix, UmiC
     }
 
     let (indptr, indices, _) = mtx.into_inner().into_raw_storage();
-    Ok(CscMatrix::new(Matrix::new_csc(
-        shape, indptr, indices, i32_data,
-    )))
+    Ok(CscMatrix::new(Matrix::new_csc(shape, indptr, indices, i32_data)))
 }
 
-fn all_total_counts_are_equal(
-    data: &[i32],
-    indptr: IndPtrView<'_, i64>,
-) -> Result<bool, UmiCountsError> {
+fn all_total_counts_are_equal(data: &[i32], indptr: IndPtrView<'_, i64>) -> Result<bool, UmiCountsError> {
     let total_counts = calculate_total_counts_for_all_cells(data, indptr);
 
     let mut nonempty_cells = total_counts.iter().filter(|tc| **tc > 0);
@@ -189,38 +184,24 @@ mod tests {
         let csr = csr();
         let shape = csr.shape();
         let (indptr, indices, data) = csr.into_raw_storage();
-        let from_csr = RawCscUmiCounts::from_sparse_matrix(
-            shape,
-            indptr,
-            indices,
-            data,
-            SparseEncodingType::CsrMatrix,
-        )
-        .unwrap();
+        let from_csr =
+            RawCscUmiCounts::from_sparse_matrix(shape, indptr, indices, data, SparseEncodingType::CsrMatrix).unwrap();
 
         let csc = csc();
         let shape = csc.shape();
         let (indptr, indices, data) = csc.into_raw_storage();
-        let from_csc = RawCscUmiCounts::from_sparse_matrix(
-            shape,
-            indptr,
-            indices,
-            data,
-            SparseEncodingType::CscMatrix,
-        )
-        .unwrap();
+        let from_csc =
+            RawCscUmiCounts::from_sparse_matrix(shape, indptr, indices, data, SparseEncodingType::CscMatrix).unwrap();
 
         assert_eq!(
             from_csr, from_csc,
             "the same counts in CSR and CSC did not produce the same matrix"
         );
 
-        let from_dense =
-            RawCscUmiCounts::from_dense_matrix(&counts(), DenseEncodingType::Array).unwrap();
+        let from_dense = RawCscUmiCounts::from_dense_matrix(&counts(), DenseEncodingType::Array).unwrap();
         assert_eq!(
             from_csr, from_dense,
-            "dense matrix and sparse matrix provided from the same counts did not produce the \
-             same matrix"
+            "dense matrix and sparse matrix provided from the same counts did not produce the same matrix"
         );
     }
 

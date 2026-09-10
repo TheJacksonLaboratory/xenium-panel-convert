@@ -17,13 +17,9 @@ mod targets;
 mod write;
 
 fn main() -> anyhow::Result<()> {
-    let Cli {
-        command,
-        output_dir,
-    } = Cli::parse();
+    let Cli { command, output_dir } = Cli::parse();
 
-    fs::create_dir_all(&output_dir)
-        .with_context(|| format!("failed to create output directory {output_dir}"))?;
+    fs::create_dir_all(&output_dir).with_context(|| format!("failed to create output directory {output_dir}"))?;
 
     match command {
         Command::Targets(options) => {
@@ -35,11 +31,7 @@ fn main() -> anyhow::Result<()> {
         Command::All {
             targets_options,
             references_options,
-        } => convert_target_list_and_reference_datasets(
-            &targets_options,
-            &references_options,
-            &output_dir,
-        )?,
+        } => convert_target_list_and_reference_datasets(&targets_options, &references_options, &output_dir)?,
     }
 
     Ok(())
@@ -60,8 +52,8 @@ enum Command {
     /// Designer.
     ///
     /// The target-list must be a CSV-file with the header:
-    /// "ensembl_id,gene_symbol,group,priority,custom". Any additional fields will
-    /// be propagated untouched in the output file.
+    /// "ensembl_id,gene_symbol,group,priority,custom". Any additional fields will be propagated untouched in the output
+    /// file.
     ///
     /// A "cleaned" version of the file will be saved at
     /// <OUTPUT_DIR>/validated-targets.csv, and the version for the panel

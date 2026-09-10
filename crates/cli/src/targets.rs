@@ -6,9 +6,8 @@ use camino::{Utf8Path, Utf8PathBuf};
 use xenium_panel_convert_core::target_list::{
     TargetList,
     chemistry::{
-        Chemistry, Species, xenium_prime_human_ensembl_id_to_gene,
-        xenium_prime_mouse_ensembl_id_to_gene, xenium_v1_human_ensembl_id_to_gene,
-        xenium_v1_mouse_ensembl_id_to_gene,
+        Chemistry, Species, xenium_prime_human_ensembl_id_to_gene, xenium_prime_mouse_ensembl_id_to_gene,
+        xenium_v1_human_ensembl_id_to_gene, xenium_v1_mouse_ensembl_id_to_gene,
     },
     parse_target_list,
     target::ValidTargetCsv,
@@ -27,8 +26,8 @@ pub(super) fn convert_target_list(
     }: &TargetListCliOptions,
     output_dir: &Utf8Path,
 ) -> anyhow::Result<Option<TargetList>> {
-    let target_list = fs::read_to_string(targets_path)
-        .with_context(|| format!("failed to read target-list from {targets_path}"))?;
+    let target_list =
+        fs::read_to_string(targets_path).with_context(|| format!("failed to read target-list from {targets_path}"))?;
 
     let field_aliases_from_file = read_field_aliases_from_file(field_alias_file.as_deref())?;
 
@@ -145,9 +144,7 @@ mod tests {
 
         assert_eq!(
             field_aliases,
-            [("alias1", "field1"), ("alias2", "field2")]
-                .into_iter()
-                .collect()
+            [("alias1", "field1"), ("alias2", "field2")].into_iter().collect()
         );
     }
 }

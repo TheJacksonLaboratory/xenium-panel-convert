@@ -12,10 +12,7 @@ pub(super) fn read_csv_trimmed(target_list: &str) -> csv::Reader<&[u8]> {
         .from_reader(target_list.as_bytes())
 }
 
-pub(super) fn rename_fields(
-    original_fieldnames: &StringRecord,
-    field_aliases: &HashMap<&str, &str>,
-) -> StringRecord {
+pub(super) fn rename_fields(original_fieldnames: &StringRecord, field_aliases: &HashMap<&str, &str>) -> StringRecord {
     let mut renamed_fields = StringRecord::new();
 
     for original in original_fieldnames {
@@ -46,10 +43,6 @@ mod tests {
 
         let renamed_fields = rename_fields(&original_fieldnames, &field_aliases);
 
-        assert_eq!(
-            renamed_fields,
-            ["field_1", "field2"][..],
-            "failed to rename fields"
-        );
+        assert_eq!(renamed_fields, ["field_1", "field2"][..], "failed to rename fields");
     }
 }

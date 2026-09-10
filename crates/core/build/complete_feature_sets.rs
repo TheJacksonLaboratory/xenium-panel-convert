@@ -45,7 +45,8 @@ fn write_3p_gene_lists() -> anyhow::Result<()> {
     );
 
     let grch38_2024_a = (
-        "datasets/5k_Human_Donor2_PBMC_3p_gem-x_5k_Human_Donor2_PBMC_3p_gem-x_count_sample_filtered_feature_bc_matrix.h5",
+        "datasets/5k_Human_Donor2_PBMC_3p_gem-x_5k_Human_Donor2_PBMC_3p_gem-x_count_sample_filtered_feature_bc_matrix.\
+         h5",
         38_606,
         "GRCH38_2024_A",
         "grch38_2024_a.rs",
@@ -65,9 +66,7 @@ fn write_3p_gene_lists() -> anyhow::Result<()> {
         "grcm39_2024_a.rs",
     );
 
-    for (h5_path, expected_n_genes, map_name, map_path) in
-        [grch38_2020_a, grch38_2024_a, mm10_2020_a, grcm39_2024_a]
-    {
+    for (h5_path, expected_n_genes, map_name, map_path) in [grch38_2020_a, grch38_2024_a, mm10_2020_a, grcm39_2024_a] {
         let (ensembl_ids, gene_symbols) = read_transcriptome_from_h5(h5_path)?;
 
         let map = construct_map(ensembl_ids.iter().zip(&gene_symbols), expected_n_genes);
@@ -171,12 +170,8 @@ type GeneName = FixedAscii<32>;
 fn read_transcriptome_from_h5(file_path: &str) -> anyhow::Result<(Vec<EnsemblId>, Vec<GeneName>)> {
     let file = hdf5_metno::File::open(file_path)?;
 
-    let ensembl_ids = file
-        .dataset("matrix/features/id")
-        .and_then(|ds| ds.read_raw())?;
-    let gene_symbols = file
-        .dataset("matrix/features/name")
-        .and_then(|ds| ds.read_raw())?;
+    let ensembl_ids = file.dataset("matrix/features/id").and_then(|ds| ds.read_raw())?;
+    let gene_symbols = file.dataset("matrix/features/name").and_then(|ds| ds.read_raw())?;
 
     Ok((ensembl_ids, gene_symbols))
 }

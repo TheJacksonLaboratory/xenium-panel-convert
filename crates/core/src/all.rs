@@ -73,9 +73,7 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
     // If we have a PseudoAnndata, we know that the either the transcriptome is
     // 'other' or the features match the transcriptome exactly, so it's okay to
     // return Ok with no transcriptome
-    let Some(transcriptome) =
-        Transcriptome::new(reference_dataset_transcriptome, reference_dataset_is_flex)
-    else {
+    let Some(transcriptome) = Transcriptome::new(reference_dataset_transcriptome, reference_dataset_is_flex) else {
         return Ok(());
     };
 
@@ -91,12 +89,10 @@ fn validate_gene_is_in_transcriptome_with_correct_name(
     )?;
 
     if gene.gene_symbol != *gene_symbol_from_transcriptome {
-        return Err(
-            TargetListReferenceDatasetCompatibilityWarning::GeneNameMismatch {
-                gene_in_target_list: gene,
-                gene_symbol_in_reference_dataset: gene_symbol_from_transcriptome,
-            },
-        );
+        return Err(TargetListReferenceDatasetCompatibilityWarning::GeneNameMismatch {
+            gene_in_target_list: gene,
+            gene_symbol_in_reference_dataset: gene_symbol_from_transcriptome,
+        });
     }
 
     Ok(())

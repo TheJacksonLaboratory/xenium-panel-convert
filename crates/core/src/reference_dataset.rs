@@ -8,12 +8,8 @@ use serde::Serialize;
 use crate::{
     error::collect_error,
     reference_dataset::{
-        columns::{
-            CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneSymbolCol,
-        },
-        error::{
-            ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
-        },
+        columns::{CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneSymbolCol},
+        error::{ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError},
         h5_util::{create_h5_group, write_dataset_to_h5_group},
         obs::{read_cell_annotations_from_h5ad, read_cell_barcodes_from_h5ad},
         pseudo_anndata::PseudoAnndata,
@@ -44,28 +40,18 @@ pub fn read_reference_dataset(
     let mut errors = Vec::new();
 
     let file = hdf5_metno::File::open(path).map_err(|e| {
-        ReadReferenceDatasetErrorSet::new(
-            path,
-            vec![ReadReferenceDatasetError::H5File {
-                reason: e.to_string(),
-            }],
-        )
+        ReadReferenceDatasetErrorSet::new(path, vec![ReadReferenceDatasetError::H5File { reason: e.to_string() }])
     })?;
 
-    let counts = collect_error(
-        read_umi_counts_from_h5ad(&file, counts_layer_name),
-        &mut errors,
-    );
+    let counts = collect_error(read_umi_counts_from_h5ad(&file, counts_layer_name), &mut errors);
 
     let barcodes = collect_error(
-        read_cell_barcodes_from_h5ad(&file, cell_barcode_col)
-            .map_err(ReadReferenceDatasetError::CellBarcodes),
+        read_cell_barcodes_from_h5ad(&file, cell_barcode_col).map_err(ReadReferenceDatasetError::CellBarcodes),
         &mut errors,
     );
 
     let cell_annotations = collect_error(
-        read_cell_annotations_from_h5ad(&file, cell_annotation_col)
-            .map_err(ReadReferenceDatasetError::CellAnnotations),
+        read_cell_annotations_from_h5ad(&file, cell_annotation_col).map_err(ReadReferenceDatasetError::CellAnnotations),
         &mut errors,
     );
 
@@ -89,10 +75,7 @@ pub fn read_reference_dataset(
 }
 
 // See https://www.10xgenomics.com/support/software/cell-ranger/latest/analysis/outputs/cr-outputs-h5-matrices for format specifics
-pub fn write_reference_dataset(
-    dir: &Utf8Path,
-    ds: &PseudoAnndata,
-) -> Result<(), WriteReferenceDatasetError> {
+pub fn write_reference_dataset(dir: &Utf8Path, ds: &PseudoAnndata) -> Result<(), WriteReferenceDatasetError> {
     if !dir.exists() {
         fs::create_dir_all(dir).map_err(|e| WriteReferenceDatasetError::CreateOutputDir {
             path: dir.to_owned(),
@@ -102,9 +85,7 @@ pub fn write_reference_dataset(
 
     let annotations_path = dir.join("annotations.csv");
     if annotations_path.exists() {
-        return Err(WriteReferenceDatasetError::AnnotationsCsvExists {
-            path: annotations_path,
-        });
+        return Err(WriteReferenceDatasetError::AnnotationsCsvExists { path: annotations_path });
     }
     write_annotations_csv(&annotations_path, ds.barcodes(), ds.cell_annotations())?;
 
@@ -130,25 +111,18 @@ fn write_annotations_csv(
     let mut writer = csv::Writer::from_path(path).map_err(map_err)?;
     for (barcode, annotation) in barcodes.iter().zip(annotations) {
         writer
-            .serialize(CellAnnotation {
-                barcode,
-                annotation,
-            })
+            .serialize(CellAnnotation { barcode, annotation })
             .map_err(map_err)?;
     }
 
     Ok(())
 }
 
-fn write_matrix(
-    path: &Utf8Path,
-    dataset: &PseudoAnndata,
-) -> Result<(), WriteReferenceDatasetError> {
-    let file =
-        File::create_excl(path).map_err(|e| WriteReferenceDatasetError::CreateMatrixFile {
-            path: path.to_path_buf(),
-            reason: e.to_string(),
-        })?;
+fn write_matrix(path: &Utf8Path, dataset: &PseudoAnndata) -> Result<(), WriteReferenceDatasetError> {
+    let file = File::create_excl(path).map_err(|e| WriteReferenceDatasetError::CreateMatrixFile {
+        path: path.to_path_buf(),
+        reason: e.to_string(),
+    })?;
 
     let write_err = |error| WriteReferenceDatasetError::WriteH5Object {
         path: path.to_path_buf(),
@@ -162,21 +136,13 @@ fn write_matrix(
     let counts = dataset.counts();
     write_dataset_to_h5_group(&matrix_group, "data", counts.data()).map_err(write_err)?;
     write_dataset_to_h5_group(&matrix_group, "indices", counts.indices()).map_err(write_err)?;
-    write_dataset_to_h5_group(&matrix_group, "indptr", counts.indptr().raw_storage())
-        .map_err(write_err)?;
+    write_dataset_to_h5_group(&matrix_group, "indptr", counts.indptr().raw_storage()).map_err(write_err)?;
     write_dataset_to_h5_group(&matrix_group, "shape", &counts.shape_as_i32()).map_err(write_err)?;
 
     let features = dataset.features();
-    write_dataset_to_h5_group(
-        &matrix_group,
-        "features/feature_type",
-        features.feature_types(),
-    )
-    .map_err(write_err)?;
-    write_dataset_to_h5_group(&matrix_group, "features/id", features.ensembl_ids())
-        .map_err(write_err)?;
-    write_dataset_to_h5_group(&matrix_group, "features/name", features.gene_symbols())
-        .map_err(write_err)?;
+    write_dataset_to_h5_group(&matrix_group, "features/feature_type", features.feature_types()).map_err(write_err)?;
+    write_dataset_to_h5_group(&matrix_group, "features/id", features.ensembl_ids()).map_err(write_err)?;
+    write_dataset_to_h5_group(&matrix_group, "features/name", features.gene_symbols()).map_err(write_err)?;
 
     Ok(())
 }
@@ -202,12 +168,8 @@ mod tests {
         error::Hinted,
         reference_dataset::{
             Barcode,
-            columns::{
-                CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneSymbolCol,
-            },
-            error::{
-                ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError,
-            },
+            columns::{CellAnnotationCol, CellBarcodeCol, CountsLayerName, EnsemblIdCol, GeneSymbolCol},
+            error::{ReadReferenceDatasetError, ReadReferenceDatasetErrorSet, WriteReferenceDatasetError},
             h5_util::read_test_1d_dataset,
             pseudo_anndata::PseudoAnndata,
             read_reference_dataset,
@@ -242,12 +204,7 @@ mod tests {
     }
 
     fn dtype(file: &File, path: &str) -> TypeDescriptor {
-        file.dataset(path)
-            .unwrap()
-            .dtype()
-            .unwrap()
-            .to_descriptor()
-            .unwrap()
+        file.dataset(path).unwrap().dtype().unwrap().to_descriptor().unwrap()
     }
 
     #[test]
@@ -343,19 +300,13 @@ mod tests {
             scanpy_features.gene_symbols()
         );
         assert_eq!(
-            read_test_1d_dataset::<FixedAscii<32>>(&written, "matrix/features/feature_type")
-                .unwrap(),
+            read_test_1d_dataset::<FixedAscii<32>>(&written, "matrix/features/feature_type").unwrap(),
             scanpy_features.feature_types()
         );
 
         // Also check the data types
         let original = File::open(REAL_H5).unwrap();
-        for path in [
-            "matrix/data",
-            "matrix/indices",
-            "matrix/indptr",
-            "matrix/shape",
-        ] {
+        for path in ["matrix/data", "matrix/indices", "matrix/indptr", "matrix/shape"] {
             assert_eq!(
                 dtype(&written, path),
                 dtype(&original, path),
@@ -443,17 +394,14 @@ mod tests {
             read_counts.shape_as_i32()
         );
 
-        let original_barcodes =
-            read_test_1d_dataset::<FixedAscii<64>>(&original_h5, "matrix/barcodes").unwrap();
+        let original_barcodes = read_test_1d_dataset::<FixedAscii<64>>(&original_h5, "matrix/barcodes").unwrap();
         assert_eq!(original_barcodes, read_dataset.barcodes());
 
         let read_features = read_dataset.features();
-        let original_feature_ids =
-            read_test_1d_dataset::<EnsemblId>(&original_h5, "matrix/features/id").unwrap();
+        let original_feature_ids = read_test_1d_dataset::<EnsemblId>(&original_h5, "matrix/features/id").unwrap();
         assert_eq!(original_feature_ids, read_features.ensembl_ids());
 
-        let original_feature_names =
-            read_test_1d_dataset::<GeneName>(&original_h5, "matrix/features/name").unwrap();
+        let original_feature_names = read_test_1d_dataset::<GeneName>(&original_h5, "matrix/features/name").unwrap();
         assert_eq!(original_feature_names, read_features.gene_symbols());
     }
 }

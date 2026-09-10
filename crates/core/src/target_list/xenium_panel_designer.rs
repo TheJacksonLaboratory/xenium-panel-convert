@@ -80,17 +80,12 @@ mod tests {
 
     fn valid_targets() -> Vec<ValidTarget> {
         // Deliberately not in priority order
-        let target_list = "ensembl_id,gene_symbol,group,priority\nENSG00000116678,LEPR,group0,\
-                           backup\nENSG00000141510,TP53,group0,must_have\nENSG00000120802,TMPO,\
-                           group1,desired";
+        let target_list = "ensembl_id,gene_symbol,group,priority\nENSG00000116678,LEPR,group0,backup\nENSG00000141510,\
+                           TP53,group0,must_have\nENSG00000120802,TMPO,group1,desired";
 
-        parse_target_list(
-            target_list,
-            &HashMap::new(),
-            xenium_v1_human_ensembl_id_to_gene,
-        )
-        .unwrap()
-        .targets
+        parse_target_list(target_list, &HashMap::new(), xenium_v1_human_ensembl_id_to_gene)
+            .unwrap()
+            .targets
     }
 
     #[test]
@@ -107,9 +102,6 @@ mod tests {
         );
 
         assert_eq!(genes[0].force, Some(Force::Forced));
-        assert_eq!(
-            genes[1].force, None,
-            "only must_have targets should be forced"
-        );
+        assert_eq!(genes[1].force, None, "only must_have targets should be forced");
     }
 }

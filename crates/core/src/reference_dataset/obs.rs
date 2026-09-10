@@ -55,9 +55,7 @@ mod tests {
             .collect();
         assert_eq!(barcodes, expected_barcodes);
 
-        let annotations =
-            read_cell_annotations_from_h5ad(&file, &CellAnnotationCol("annotation".to_owned()))
-                .unwrap();
+        let annotations = read_cell_annotations_from_h5ad(&file, &CellAnnotationCol("annotation".to_owned())).unwrap();
         let expected_annotations: Vec<_> = (0..10).map(|i| format!("group{}", i % 2)).collect();
         assert_eq!(annotations.to_vec(), expected_annotations);
     }
@@ -67,8 +65,7 @@ mod tests {
         let file = generated_h5ad();
 
         let from_index = read_cell_barcodes_from_h5ad(&file, &CellBarcodeCol::default()).unwrap();
-        let from_column =
-            read_cell_barcodes_from_h5ad(&file, &CellBarcodeCol("barcode".to_owned())).unwrap();
+        let from_column = read_cell_barcodes_from_h5ad(&file, &CellBarcodeCol("barcode".to_owned())).unwrap();
 
         assert_eq!(
             from_index, from_column,
@@ -78,11 +75,8 @@ mod tests {
 
     #[test]
     fn missing_column_is_an_error() {
-        let err = read_cell_annotations_from_h5ad(
-            &generated_h5ad(),
-            &CellAnnotationCol("nonexistent".to_owned()),
-        )
-        .unwrap_err();
+        let err = read_cell_annotations_from_h5ad(&generated_h5ad(), &CellAnnotationCol("nonexistent".to_owned()))
+            .unwrap_err();
 
         std::assert_matches!(
             err,

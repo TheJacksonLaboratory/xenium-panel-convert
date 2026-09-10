@@ -20,9 +20,7 @@ impl FromStr for EncodingType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match SparseEncodingType::from_str(s).map(Self::Sparse) {
             Ok(enc) => Ok(enc),
-            Err(_) => DenseEncodingType::from_str(s)
-                .map(Self::Dense)
-                .map_err(|_| ()),
+            Err(_) => DenseEncodingType::from_str(s).map(Self::Dense).map_err(|_| ()),
         }
     }
 }

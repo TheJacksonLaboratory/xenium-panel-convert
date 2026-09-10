@@ -4,11 +4,9 @@ use serde::Deserialize;
 
 use crate::common::{parse_gene_list_from_csv, write_map_to_file};
 
-const XENIUM_V1_GENE_LIST: &str =
-    "xenium-gene-lists/human_and_mouse_2020-A-ref-yesprobe-genes_v1assay.csv";
+const XENIUM_V1_GENE_LIST: &str = "xenium-gene-lists/human_and_mouse_2020-A-ref-yesprobe-genes_v1assay.csv";
 
-const XENIUM_PRIME_GENE_LIST: &str =
-    "xenium-gene-lists/human_and_mouse_genes_xenium_prime-yesprobe-genes.csv";
+const XENIUM_PRIME_GENE_LIST: &str = "xenium-gene-lists/human_and_mouse_genes_xenium_prime-yesprobe-genes.csv";
 
 pub(crate) fn write_gene_maps() -> anyhow::Result<()> {
     let gene_lists: Vec<_> = [XENIUM_V1_GENE_LIST, XENIUM_PRIME_GENE_LIST]
@@ -32,16 +30,8 @@ pub(crate) fn write_gene_maps() -> anyhow::Result<()> {
     for (filename, map_name, gene_map) in [
         ("xenium_v1_human.rs", "XENIUM_V1_HUMAN_GENES", v1_human),
         ("xenium_v1_mouse.rs", "XENIUM_V1_MOUSE_GENES", v1_mouse),
-        (
-            "xenium_prime_human.rs",
-            "XENIUM_PRIME_HUMAN_GENES",
-            prime_human,
-        ),
-        (
-            "xenium_prime_mouse.rs",
-            "XENIUM_PRIME_MOUSE_GENES",
-            prime_mouse,
-        ),
+        ("xenium_prime_human.rs", "XENIUM_PRIME_HUMAN_GENES", prime_human),
+        ("xenium_prime_mouse.rs", "XENIUM_PRIME_MOUSE_GENES", prime_mouse),
     ] {
         write_map_to_file(
             &PathBuf::from(format!("src/target_list/chemistry/{filename}")),
@@ -64,11 +54,7 @@ struct Gene {
 }
 
 fn construct_maps(gene_list: &[Gene]) -> GeneMaps<'_> {
-    fn insert_gene<'a>(
-        ensembl_id: &'a str,
-        gene_symbol: &'a str,
-        map: &mut phf_codegen::Map<'a, &'a str>,
-    ) {
+    fn insert_gene<'a>(ensembl_id: &'a str, gene_symbol: &'a str, map: &mut phf_codegen::Map<'a, &'a str>) {
         map.entry(ensembl_id, format!(r#""{gene_symbol}""#));
     }
 

@@ -112,30 +112,22 @@ impl PartialEq<GeneSymbol> for UnvalidatedGeneName {
 }
 
 #[must_use]
-pub fn xenium_v1_human_ensembl_id_to_gene(
-    ensembl_id: &UnvalidatedEnsemblId,
-) -> Option<(EnsemblId, GeneSymbol)> {
+pub fn xenium_v1_human_ensembl_id_to_gene(ensembl_id: &UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> {
     ensembl_id_to_gene(ensembl_id, &xenium_v1_human::XENIUM_V1_HUMAN_GENES)
 }
 
 #[must_use]
-pub fn xenium_prime_human_ensembl_id_to_gene(
-    ensembl_id: &UnvalidatedEnsemblId,
-) -> Option<(EnsemblId, GeneSymbol)> {
+pub fn xenium_prime_human_ensembl_id_to_gene(ensembl_id: &UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> {
     ensembl_id_to_gene(ensembl_id, &xenium_prime_human::XENIUM_PRIME_HUMAN_GENES)
 }
 
 #[must_use]
-pub fn xenium_v1_mouse_ensembl_id_to_gene(
-    ensembl_id: &UnvalidatedEnsemblId,
-) -> Option<(EnsemblId, GeneSymbol)> {
+pub fn xenium_v1_mouse_ensembl_id_to_gene(ensembl_id: &UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> {
     ensembl_id_to_gene(ensembl_id, &xenium_v1_mouse::XENIUM_V1_MOUSE_GENES)
 }
 
 #[must_use]
-pub fn xenium_prime_mouse_ensembl_id_to_gene(
-    ensembl_id: &UnvalidatedEnsemblId,
-) -> Option<(EnsemblId, GeneSymbol)> {
+pub fn xenium_prime_mouse_ensembl_id_to_gene(ensembl_id: &UnvalidatedEnsemblId) -> Option<(EnsemblId, GeneSymbol)> {
     ensembl_id_to_gene(ensembl_id, &xenium_prime_mouse::XENIUM_PRIME_MOUSE_GENES)
 }
 

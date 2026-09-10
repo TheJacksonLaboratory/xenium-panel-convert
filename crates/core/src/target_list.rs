@@ -71,8 +71,7 @@ pub fn parse_target_list(
         let line_number = record.position().map(csv::Position::line);
         let submitted_target = UnvalidatedTarget::from_record(&record, &fieldnames);
 
-        let row_errors = match ValidTarget::from_unvalidated(&submitted_target, ensembl_id_to_gene)
-        {
+        let row_errors = match ValidTarget::from_unvalidated(&submitted_target, ensembl_id_to_gene) {
             Ok(valid_target) => {
                 // Cloning is cheap for the vast majority of genes
                 if seen_genes.insert(valid_target.gene().clone()) {
@@ -118,17 +117,12 @@ mod tests {
 
     #[test]
     fn valid_target_list() {
-        let gene_list = "ensembl_id,gene_symbol,group,priority\nENSG00000141510,TP53,group0,\
-                         must_have\nENSG00000116678,LEPR,group0,desired\nENSG00000120802,TMPO,\
-                         group1,backup";
+        let gene_list = "ensembl_id,gene_symbol,group,priority\nENSG00000141510,TP53,group0,must_have\\
+                         nENSG00000116678,LEPR,group0,desired\nENSG00000120802,TMPO,group1,backup";
 
-        let targets = parse_target_list(
-            gene_list,
-            &HashMap::new(),
-            xenium_v1_human_ensembl_id_to_gene,
-        )
-        .unwrap()
-        .targets;
+        let targets = parse_target_list(gene_list, &HashMap::new(), xenium_v1_human_ensembl_id_to_gene)
+            .unwrap()
+            .targets;
 
         let gene_symbols: Vec<_> = targets
             .iter()
@@ -149,18 +143,13 @@ mod tests {
         let ensembl_id = tp53_ensembl_id();
         let ensembl_id_str = ensembl_id.as_str();
 
-        // Two idential rows. We have to split this into 3 lines because cargo +nightly
-        // fmt destroys it otherwise
+        // Two idential rows. We have to split this into 3 lines because cargo
+        // +nightly fmt destroys it otherwise
         let header = "ensembl_id,gene_symbol,group,priority";
         let row = format!("{ensembl_id_str},TP53,group0,must_have");
         let gene_list = format!("{header}\n{row}\n{row}");
 
-        let errors = parse_target_list(
-            &gene_list,
-            &HashMap::new(),
-            xenium_v1_human_ensembl_id_to_gene,
-        )
-        .unwrap_err();
+        let errors = parse_target_list(&gene_list, &HashMap::new(), xenium_v1_human_ensembl_id_to_gene).unwrap_err();
 
         assert_eq!(errors.len(), 1, "did not find exactly 1 error");
         assert_eq!(errors[0].errors, [Hinted::new(TargetError::DuplicateGene)]);
@@ -170,12 +159,7 @@ mod tests {
     fn error_reports_correct_file_line_number() {
         let gene_list = "ensembl_id,gene_symbol,group,priority\nid,gene,0,must_have";
 
-        let errors = parse_target_list(
-            gene_list,
-            &HashMap::new(),
-            xenium_v1_human_ensembl_id_to_gene,
-        )
-        .unwrap_err();
+        let errors = parse_target_list(gene_list, &HashMap::new(), xenium_v1_human_ensembl_id_to_gene).unwrap_err();
 
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].line_number, Some(2));
