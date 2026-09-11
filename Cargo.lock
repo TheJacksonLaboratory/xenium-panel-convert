@@ -926,7 +926,7 @@ dependencies = [
 
 [[package]]
 name = "xenium-panel-convert"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "camino",
@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "xenium-panel-convert-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "camino",

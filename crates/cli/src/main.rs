@@ -32,6 +32,7 @@ fn main() -> anyhow::Result<()> {
             targets_options,
             references_options,
         } => convert_target_list_and_reference_datasets(&targets_options, &references_options, &output_dir)?,
+        Command::External(_) => (),
     }
 
     Ok(())
@@ -67,4 +68,7 @@ enum Command {
         #[clap(flatten)]
         references_options: ReferenceDatasetCliOptions,
     },
+    #[expect(dead_code)]
+    #[clap(external_subcommand)]
+    External(Vec<String>),
 }
