@@ -6,7 +6,7 @@ In order to create a custom Xenium Panel, the [10x Genomics Xenium Panel Designe
 
 ## Installation
 
-Install the latest version from the [releases page](https://github.com/TheJacksonLaboratory/xenium-panel-convert/releases). The installer script will also install `xenium-panel-convert-update` which updates `xp-convert` to the latest version.
+Install the latest version from the [releases page](https://github.com/TheJacksonLaboratory/xenium-panel-convert/releases).
 
 ## Usage
 
