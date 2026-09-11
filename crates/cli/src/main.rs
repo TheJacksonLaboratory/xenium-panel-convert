@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
                 )
             };
 
-            let output = process::Command::new(&updater_name)
+            let output = process::Command::new(updater_name)
                 .output()
                 .with_context(err_message1)
                 .with_context(err_message2)?;
@@ -57,15 +57,15 @@ fn main() -> anyhow::Result<()> {
             } = output;
 
             if !stdout.is_empty() {
-                stdout.push('\n' as u8);
+                stdout.push(b'\n');
             }
 
             let message = String::from_utf8(stdout.into_iter().chain(stderr).collect()).unwrap_or_default();
 
-            if !status.success() {
-                eprintln!("{message}");
-            } else {
+            if status.success() {
                 println!("{message}");
+            } else {
+                eprintln!("{message}");
             }
         }
     }
