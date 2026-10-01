@@ -27,7 +27,7 @@ pub(super) fn read_cell_barcodes_from_h5ad(
 ) -> Result<Barcodes, ReadH5FieldError> {
     let barcodes = read_1d_string_dataset(file, &format!("obs/{barcode_col}"))?;
 
-    Ok(barcodes.mapv_into_any(|b| to_ascii(&b)))
+    barcodes.iter().map(to_ascii).collect()
 }
 
 #[cfg(test)]

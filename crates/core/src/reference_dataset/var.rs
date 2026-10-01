@@ -34,11 +34,7 @@ pub(super) fn read_features_from_h5ad(
 
     check_feature_array_lens(&ensembl_ids, &gene_symbols, &feature_types)?;
 
-    let features = Features {
-        ensembl_ids: ensembl_ids.mapv(|s| to_ascii(&s)),
-        gene_symbols: gene_symbols.mapv(|s| to_ascii(&s)),
-        feature_types: feature_types.mapv(|s| to_ascii(&s)),
-    };
+    let features = Features::from_var_len_unicode_arrays(&ensembl_ids, &gene_symbols, &feature_types)?;
 
     let Some(transcriptome) = transcriptome else {
         return Ok(features);
@@ -166,6 +162,32 @@ impl Features {
 
     pub(crate) fn len(&self) -> usize {
         self.ensembl_ids.len()
+    }
+
+    fn from_var_len_unicode_arrays(
+        ensembl_ids: &Array1<VarLenUnicode>,
+        gene_symbols: &Array1<VarLenUnicode>,
+        feature_types: &Array1<VarLenUnicode>,
+    ) -> Result<Self, VarError> {
+        let mut errors = Vec::new();
+
+        let ensembl_ids = ensembl_ids.iter().map(to_ascii).collect();
+        let gene_symbols = gene_symbols.iter().map(to_ascii).collect();
+        let feature_types = feature_types.iter().map(to_ascii).collect();
+
+        let (Some(ensembl_ids), Some(gene_symbols), Some(feature_types)) = (
+            collect_error(ensembl_ids, &mut errors),
+            collect_error(gene_symbols, &mut errors),
+            collect_error(feature_types, &mut errors),
+        ) else {
+            return Err(VarError::InvalidH5Fields { errors });
+        };
+
+        Ok(Self {
+            ensembl_ids,
+            gene_symbols,
+            feature_types,
+        })
     }
 }
 
