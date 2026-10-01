@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use hdf5_metno::{
     Container, File, Group, H5Type,
-    types::{FixedAscii, VarLenUnicode},
+    types::{FixedAscii, StringError, VarLenUnicode},
 };
 use ndarray::{Array1, ArrayView, Dimension};
 use serde::Serialize;
@@ -119,8 +119,8 @@ pub(crate) fn read_test_1d_dataset<T: H5Type>(file: &File, path: &str) -> Result
     read_1d_dataset(file, path)
 }
 
-pub(super) fn to_ascii<const N: usize>(s: &VarLenUnicode) -> FixedAscii<N> {
-    FixedAscii::from_ascii(&s).expect("all strings are ASCII in this context")
+pub(super) fn to_ascii<const N: usize>(s: &VarLenUnicode) -> Result<FixedAscii<N>, ReadH5FieldError> {
+    FixedAscii::from_ascii(&s).map_err(|e| ReadH5FieldError::from_string_error(e, N))
 }
 
 pub(super) fn create_h5_group(file: &File, path: &str) -> Result<Group, WriteH5ObjectError> {
@@ -186,6 +186,13 @@ pub enum ReadH5FieldError {
         found: String,
         expected: &'static [&'static str],
     },
+    #[error(
+        "dataset contained strings longer than expected length of {maximum_length} - do not modify Ensembl IDs and/or \
+         gene symbols"
+    )]
+    UnexpectedStringLength { maximum_length: usize },
+    #[error("malformatted string - ensure the file was written by scanpy")]
+    InvalidFormat,
 }
 
 impl ReadH5FieldError {
@@ -202,14 +209,25 @@ impl ReadH5FieldError {
             available_objects: recurse_through_group(file),
         }
     }
+
+    fn from_string_error(err: StringError, maximum_length: usize) -> Self {
+        #[expect(clippy::match_same_arms)]
+        match err {
+            StringError::InsufficientCapacity => Self::UnexpectedStringLength { maximum_length },
+            StringError::InternalNull | StringError::AsciiError(_) => Self::InvalidFormat,
+            _ => Self::InvalidFormat,
+        }
+    }
 }
 
 fn recurse_through_group(group: &Group) -> Vec<String> {
+    let mut object_names = Vec::with_capacity(32);
+
     group
-        .iter_visit_default(Vec::with_capacity(32), |group: &Group, name, _, object_names| {
+        .iter_visit_default(|name, _| {
             if group.dataset(name).is_ok() {
                 object_names.push(format!("{}/{name}", group.name()));
-                return true;
+                return Ok(());
             }
 
             if let Ok(nested_group) = group.group(name) {
@@ -217,9 +235,11 @@ fn recurse_through_group(group: &Group) -> Vec<String> {
                 object_names.append(&mut sub_object_names);
             }
 
-            true
+            Ok(())
         })
-        .expect("iterating over a file should not produce errors")
+        .expect("iterating over a file should not produce errors");
+
+    object_names
 }
 
 #[derive(Debug, Clone, Copy, Serialize, strum::Display)]
